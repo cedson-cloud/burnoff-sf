@@ -92,9 +92,10 @@ export default function Walkthrough({ store, onClose }: { store: BoardStore; onC
       const el = findAnchor(step.target)
       if (!el) return
       if (!step.cardTop) return el.scrollIntoView({ block: 'nearest' })
-      // Leave room for the card pinned above it; the browser finds whatever scrolls.
-      el.style.scrollMarginTop = `${GAP + (cardRef.current?.offsetHeight ?? 0) + 20}px`
-      el.scrollIntoView({ block: 'start' })
+      // Measured against the screen, where the card is pinned. scrollIntoView with a
+      // scroll margin would measure from the sheet body, which starts below its header.
+      const below = GAP + (cardRef.current?.offsetHeight ?? 0) + 20
+      scrollParent(el).scrollBy(0, el.getBoundingClientRect().top - below)
     }, 120)
     return () => clearTimeout(t)
   }, [i])
@@ -197,6 +198,15 @@ function useAnchorRect(name: string): DOMRect | null {
 const sameRect = (a: DOMRect | null, b: DOMRect | null) =>
   a === b ||
   (!!a && !!b && a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height)
+
+// The element that scrolls `el`: the sheet body or the desktop list column, else the page.
+function scrollParent(el: HTMLElement): Element {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p)
+    if ((overflowY === 'auto' || overflowY === 'scroll') && p.scrollHeight > p.clientHeight) return p
+  }
+  return document.scrollingElement ?? document.documentElement
+}
 
 // The anchor that's on screen: some exist twice, one for desktop and one for phones.
 function findAnchor(name: string): HTMLElement | undefined {
