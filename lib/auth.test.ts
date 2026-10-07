@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { guardBoard, guardParse } from './auth'
+import { MIN_PASSCODE_LENGTH, guardBoard, guardParse } from './auth'
 import { PARSE_MODEL } from './parse-schema'
 
 const KEYS = ['BURNOFF_MODE', 'BOARD_ID', 'BOARD_PASSCODE', 'PARSE_MODEL'] as const
@@ -23,7 +23,8 @@ async function withEnv(env: Env, fn: () => void | Promise<void>) {
   }
 }
 
-const REAL: Env = { BOARD_ID: 'board-1', BOARD_PASSCODE: 'sesame' }
+const PASS = 'open-sesame-123'
+const REAL: Env = { BOARD_ID: 'board-1', BOARD_PASSCODE: PASS }
 const DEMO: Env = { BURNOFF_MODE: 'demo' }
 
 const req = (pass?: string) =>
@@ -39,31 +40,41 @@ describe('guardBoard, real mode', () => {
 
   test('401 for a wrong pass, including one of a different length', () =>
     withEnv(REAL, () => {
-      assert.equal(guardBoard(req('sesamf'), 'board-1')?.status, 401)
-      assert.equal(guardBoard(req('sesame!'), 'board-1')?.status, 401)
+      assert.equal(guardBoard(req('open-sesame-124'), 'board-1')?.status, 401)
+      assert.equal(guardBoard(req('open-sesame-123!'), 'board-1')?.status, 401)
     }))
 
   test('404 for the wrong board', () =>
     withEnv(REAL, async () => {
-      const res = guardBoard(req('sesame'), 'board-2')
+      const res = guardBoard(req(PASS), 'board-2')
       assert.equal(res?.status, 404)
       assert.deepEqual(await res?.json(), { error: 'Unknown board' })
     }))
 
   test('null for the right pass and board', () =>
-    withEnv(REAL, () => assert.equal(guardBoard(req('sesame'), 'board-1'), null)))
+    withEnv(REAL, () => assert.equal(guardBoard(req(PASS), 'board-1'), null)))
 
   test('500 when BOARD_PASSCODE is not configured', () =>
     withEnv({ BOARD_ID: 'board-1' }, async () => {
-      const res = guardBoard(req('sesame'), 'board-1')
+      const res = guardBoard(req(PASS), 'board-1')
       assert.equal(res?.status, 500)
       assert.deepEqual(await res?.json(), { error: 'BOARD_PASSCODE not configured' })
+    }))
+
+  test('500 for a configured passcode under the minimum, even when it is sent correctly', () =>
+    withEnv({ BOARD_ID: 'board-1', BOARD_PASSCODE: '1234' }, async () => {
+      const res = guardBoard(req('1234'), 'board-1')
+      assert.equal(res?.status, 500)
+      assert.deepEqual(await res?.json(), { error: `BOARD_PASSCODE must be at least ${MIN_PASSCODE_LENGTH} characters` })
+      const g = guardParse(req('1234'))
+      assert.ok('denied' in g)
+      assert.equal(g.denied.status, 500)
     }))
 })
 
 describe('guardBoard, demo mode', () => {
   test('404 even with the right pass and board', () =>
-    withEnv({ ...REAL, ...DEMO }, () => assert.equal(guardBoard(req('sesame'), 'board-1')?.status, 404)))
+    withEnv({ ...REAL, ...DEMO }, () => assert.equal(guardBoard(req(PASS), 'board-1')?.status, 404)))
 
   test('404 without any board env vars', () =>
     withEnv(DEMO, () => assert.equal(guardBoard(req(), 'anything')?.status, 404)))
@@ -79,14 +90,14 @@ describe('guardParse', () => {
 
   test('real mode: 60k limits and the default model with a pass', () =>
     withEnv(REAL, () =>
-      assert.deepEqual(guardParse(req('sesame')), { limits: { maxChars: 60_000, model: PARSE_MODEL } })))
+      assert.deepEqual(guardParse(req(PASS)), { limits: { maxChars: 60_000, model: PARSE_MODEL } })))
 
   test('demo mode: no pass needed, 15k limits', () =>
     withEnv(DEMO, () => assert.deepEqual(guardParse(req()), { limits: { maxChars: 15_000, model: PARSE_MODEL } })))
 
   test('PARSE_MODEL env overrides the model in both modes', () =>
     withEnv({ ...REAL, PARSE_MODEL: 'claude-test-model' }, async () => {
-      assert.deepEqual(guardParse(req('sesame')), { limits: { maxChars: 60_000, model: 'claude-test-model' } })
+      assert.deepEqual(guardParse(req(PASS)), { limits: { maxChars: 60_000, model: 'claude-test-model' } })
       await withEnv({ ...DEMO, PARSE_MODEL: 'claude-test-model' }, () =>
         assert.deepEqual(guardParse(req()), { limits: { maxChars: 15_000, model: 'claude-test-model' } }))
     }))

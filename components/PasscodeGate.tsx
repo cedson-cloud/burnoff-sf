@@ -32,7 +32,7 @@ export default function PasscodeGate({ onSubmit }: { onSubmit: (pass: string) =>
         </p>
         <input
           type="password"
-          inputMode="numeric"
+          autoComplete="current-password"
           autoFocus
           value={value}
           onChange={e => setValue(e.target.value)}

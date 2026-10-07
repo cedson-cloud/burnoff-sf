@@ -6,7 +6,9 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    moment a third person or any sensitive data shows up, switch to real sessions (even just
    signed cookies + an httpOnly token). The passcode also lives in localStorage, which any XSS
    would expose — acceptable now because the app renders only its own data, but it's the first
-   thing to harden.
+   thing to harden. Nothing rate-limits wrong guesses either. A lockout would need a Redis read
+   on every request, so instead the server refuses passcodes under 12 characters and the site
+   root never reveals the board URL.
 
 2. **Last-write-wins on same-listing edits.** The Redis hash makes different-listing edits safe,
    which is the actual two-person collision case. If two people edited the *same* listing offline,
@@ -38,10 +40,10 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    numbers and dates properly and validate at the API boundary with zod (which is already a
    dependency).
 
-9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 82
-   unit tests (`node:test`, no framework) across 7 files: the write queue and poll merge against
+9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 86
+   unit tests (`node:test`, no framework) across 8 files: the write queue and poll merge against
    a fake server (edits made mid-flush survive, a poll never overwrites a pending edit, a 401
-   locks while a 5xx shows "unreachable"), the passcode and mode guards, the demo's parse
+   locks while a 5xx shows "unreachable"), the passcode and mode guards, the parse length caps, the demo's parse
    fallback, the browser-only store's import/reset, and the demo seed (no real-looking contact
    data, unknowns flagged). `npm run smoke` covers the API contract and a real parse call end to
    end, and the live demo was checked with curl and on a phone before launch. The gaps: `lib/score.ts` has

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { clearPass, fetchBoard, getStoredPass, httpApi, storePass } from '@/lib/client/api'
+import { clearPass, fetchBoard, getStoredPass, httpApi, storeBoard, storePass } from '@/lib/client/api'
 import { browserStorage } from '@/lib/client/browser-storage'
 import { Parser, liveParser } from '@/lib/client/parser'
 import { BoardStore, remoteStore } from '@/lib/client/store'
@@ -34,6 +34,7 @@ export default function RealApp({ boardId }: { boardId: string }) {
   }
   return (
     <Unlocked
+      boardId={boardId}
       store={store}
       parser={parser}
       onLocked={() => {
@@ -44,10 +45,20 @@ export default function RealApp({ boardId }: { boardId: string }) {
   )
 }
 
-function Unlocked({ store, parser, onLocked }: { store: BoardStore; parser: Parser; onLocked: () => void }) {
-  const locked = useSyncExternalStore(store.subscribe, () => store.getSnapshot().access === 'locked', () => false)
+function Unlocked({ boardId, store, parser, onLocked }: {
+  boardId: string
+  store: BoardStore
+  parser: Parser
+  onLocked: () => void
+}) {
+  const access = useSyncExternalStore(store.subscribe, () => store.getSnapshot().access, () => 'loading' as const)
+  const locked = access === 'locked'
   useEffect(() => {
     if (locked) onLocked()
   }, [locked, onLocked])
+  // Only a board that loaded is worth sending this device back to from the site root.
+  useEffect(() => {
+    if (access === 'ready') storeBoard(boardId)
+  }, [access, boardId])
   return locked ? null : <Board store={store} parser={parser} />
 }

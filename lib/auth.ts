@@ -3,10 +3,20 @@ import { NextResponse } from 'next/server'
 import { mode } from './mode'
 import { PARSE_MODEL } from './parse-schema'
 
+// Nothing rate-limits wrong guesses, so the passcode's length is what stops guessing.
+// A too-short passcode keeps the board shut rather than open.
+export const MIN_PASSCODE_LENGTH = 12
+
 // Thin protection over an unguessable URL — deliberately not real auth.
 function checkPass(req: Request): NextResponse | null {
   const expected = process.env.BOARD_PASSCODE
   if (!expected) return NextResponse.json({ error: 'BOARD_PASSCODE not configured' }, { status: 500 })
+  if (expected.length < MIN_PASSCODE_LENGTH) {
+    return NextResponse.json(
+      { error: `BOARD_PASSCODE must be at least ${MIN_PASSCODE_LENGTH} characters` },
+      { status: 500 },
+    )
+  }
   const got = req.headers.get('x-board-pass') ?? ''
   const a = Buffer.from(got)
   const b = Buffer.from(expected)

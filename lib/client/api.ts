@@ -26,6 +26,23 @@ export function clearPass() {
   } catch {}
 }
 
+// The site root never names the board; a device that has opened it remembers where it is.
+const BOARD_KEY = 'board-id'
+
+export function getStoredBoard(): string | null {
+  try {
+    return localStorage.getItem(BOARD_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function storeBoard(boardId: string) {
+  try {
+    localStorage.setItem(BOARD_KEY, boardId)
+  } catch {}
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)

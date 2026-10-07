@@ -30,6 +30,19 @@ export const ParsedListingSchema = z.object({
 
 export type ParsedListing = z.infer<typeof ParsedListingSchema>
 
+// Real listing URLs are well under this. Without a cap, the URL would carry an
+// uncapped paste around maxChars.
+export const MAX_URL_CHARS = 2_000
+
+export function parseUserMessage(pageText: string, url: string, maxChars: number): string {
+  return (
+    `Listing URL: ${url.slice(0, MAX_URL_CHARS) || '(not provided)'}\n\n` +
+    `Pasted page text follows between the markers.\n<page_text>\n` +
+    pageText.slice(0, maxChars) +
+    `\n</page_text>`
+  )
+}
+
 export const PARSE_SYSTEM_PROMPT = `You extract structured apartment-listing data from raw text a user copied from a rental listing web page (Zillow, Apartments.com, Craigslist, a building's own site, etc.).
 
 Rules:

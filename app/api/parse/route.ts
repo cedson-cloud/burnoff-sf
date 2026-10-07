@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { NextResponse } from 'next/server'
 import { guardParse } from '@/lib/auth'
-import { PARSE_SYSTEM_PROMPT, ParsedListingSchema } from '@/lib/parse-schema'
+import { PARSE_SYSTEM_PROMPT, ParsedListingSchema, parseUserMessage } from '@/lib/parse-schema'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,16 +32,7 @@ export async function POST(req: Request) {
       model,
       max_tokens: 8192,
       system: PARSE_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content:
-            `Listing URL: ${url || '(not provided)'}\n\n` +
-            `Pasted page text follows between the markers.\n<page_text>\n` +
-            pageText.slice(0, maxChars) +
-            `\n</page_text>`,
-        },
-      ],
+      messages: [{ role: 'user', content: parseUserMessage(pageText, url, maxChars) }],
       output_config: { format: zodOutputFormat(ParsedListingSchema) },
     })
 

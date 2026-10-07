@@ -68,7 +68,7 @@ Cut along the way: URL scraping, embedded maps, user accounts, an ORM and a stat
 
 Claude Code's first report said the app was built, tested end to end, and passed every acceptance criterion. I treated that as a claim to check, starting with the message templates. One of them said something about us that wasn't true, and a message had already gone out with it. I had Claude Code print every template, before and after, and fact-checked each claim line by line. The audit found a second false claim, and the rule now is that templates only say what the profile says.
 
-For the public version, `npm test` runs 82 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the demo's parse fallback, and the demo data. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
+For the public version, `npm test` runs 86 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the parse length caps, the demo's parse fallback, and the demo data. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
 
 ## What I learned building it with AI
 
@@ -97,14 +97,14 @@ You don't need to know how to code. You need about 20 minutes and free accounts 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcedson-cloud%2Fburnoff-sf&env=ANTHROPIC_API_KEY,BOARD_ID,BOARD_PASSCODE&envDescription=An%20Anthropic%20API%20key%20for%20paste-to-parse%2C%20plus%20a%20board%20ID%20and%20passcode%20you%20make%20up.&envLink=https%3A%2F%2Fgithub.com%2Fcedson-cloud%2Fburnoff-sf%23use-it-for-your-own-search&project-name=burnoff&repository-name=burnoff)
 
 1. Get an Anthropic API key. At [console.anthropic.com](https://console.anthropic.com), add a few dollars of credit, then create a key under API Keys. Set a monthly spend limit while you're there.
-2. Make up a board ID and a passcode. The board ID becomes part of your private URL, so make it long and random (a password manager can generate 30 letters and numbers). The passcode is what you'll type on each phone, so keep it typeable.
+2. Make up a board ID and a passcode. The board ID becomes part of your private URL, so make it long and random (a password manager can generate 30 letters and numbers). The passcode has to be at least 12 characters, because nothing slows down someone guessing it. You type it once per phone, so three or four random words work well.
 3. Click Deploy with Vercel. Sign in with GitHub, paste in the three values, and deploy. Vercel copies the code to your GitHub and builds it. Your site will show an "unreachable" screen at first because it has no database yet. That's expected.
 4. Add the database. In your Vercel project, open Storage, create a database, and pick Upstash for Redis on the free plan. If it asks for an environment variable prefix, use `KV`. Connect it to your project.
 5. Redeploy. Under Deployments, open the latest one, choose Redeploy, and wait for it to finish so the app picks up the database.
-6. Open your site. It sends you to your board. Enter the passcode once per device.
+6. Open your board at your site's address plus `/b/` and your board ID, like `your-project.vercel.app/b/<BOARD_ID>`, and enter the passcode. The plain site address never shows strangers where your board is, so use the full link the first time on each device. After that, the plain address opens your board on that device.
 7. Fill in Settings: your budget, commute anchor, move-in window and name. If you're searching with someone, add them and how messages should describe them.
 8. Put it on your home screen. On iPhone in Safari, tap Share, then Add to Home Screen. On Android in Chrome, tap ⋮, then Add to Home screen.
-9. If you're searching with someone, send them the URL and the passcode. That's their whole setup.
+9. If you're searching with someone, send them the board link (the one with `/b/`) and the passcode. That's their whole setup.
 
 These are the settings the app reads. None of them ever reach the browser.
 
@@ -112,7 +112,7 @@ These are the settings the app reads. None of them ever reach the browser.
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key, used only for parsing | Step 1 |
 | `BOARD_ID` | Long random string that becomes your URL (`/b/<BOARD_ID>`) | Step 2 |
-| `BOARD_PASSCODE` | The shared passcode, entered once per device | Step 2 |
+| `BOARD_PASSCODE` | The shared passcode, at least 12 characters, entered once per device | Step 2 |
 | `KV_REST_API_URL` | Upstash database address | Set by Vercel in step 4 |
 | `KV_REST_API_TOKEN` | Upstash database token | Set by Vercel in step 4 |
 | `PARSE_MODEL` | Optional. Overrides the Claude model used for parsing | Leave unset |
