@@ -1,0 +1,9 @@
+# every env file except the placeholder-only example
+.env*
+!.env.example
+node_modules
+# holds real names/contacts — board data lives in Redis, not the repo
+scripts/seed.mjs
+.next
+*.tsbuildinfo
+.vercel
