@@ -11,7 +11,8 @@ import {
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
 export type BoardState = {
-  access: 'loading' | 'ready' | 'locked' | { unreachable: string }
+  // missing: the server has no board at this id (the passcode was fine). Retrying won't help.
+  access: 'loading' | 'ready' | 'locked' | 'missing' | { unreachable: string }
   listings: Listing[]
   settings: Settings
   pendingIds: Set<string>
@@ -119,6 +120,7 @@ export function remoteStore({
       queue = loadQueue(storage, key) // includes anything enqueued during the flush
       if (flush.authFailed) {
         access = 'locked'
+        status = 'idle'
         return
       }
       const data = await api.fetchBoard()
@@ -130,6 +132,10 @@ export function remoteStore({
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         access = 'locked'
+        status = 'idle'
+      } else if (err instanceof ApiError && err.status === 404 && access !== 'ready') {
+        access = 'missing'
+        status = 'idle'
       } else {
         status = err instanceof ApiError && err.status === 0 ? 'offline' : 'error'
         // Until the board has loaded once, report why; a retry that fails again updates the reason.
@@ -144,10 +150,11 @@ export function remoteStore({
 
   // One sync at a time. A call during a sync joins it and queues one more pass,
   // so an edit made mid-sync goes out right away instead of at the next poll.
-  // A locked store stays locked: the owner replaces it after a new passcode.
-  const locked = () => access === 'locked'
+  // A locked store stays locked: the owner replaces it after a new passcode. A
+  // missing board stays missing: retrying won't bring it back.
+  const stopped = () => access === 'locked' || access === 'missing'
   function sync(): Promise<void> {
-    if (locked()) return Promise.resolve()
+    if (stopped()) return Promise.resolve()
     if (inflight) {
       again = true
       return inflight
@@ -157,7 +164,7 @@ export function remoteStore({
       do {
         again = false
         await run()
-      } while (again && !locked())
+      } while (again && !stopped())
       inflight = null
     })()
     return inflight

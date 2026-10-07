@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { ApiError } from '@/lib/client/api'
+import { inputCls } from './Field'
+import Splash from './Splash'
 
 export default function PasscodeGate({ onSubmit }: { onSubmit: (pass: string) => Promise<void> }) {
   const [value, setValue] = useState('')
@@ -9,9 +11,8 @@ export default function PasscodeGate({ onSubmit }: { onSubmit: (pass: string) =>
   const [busy, setBusy] = useState(false)
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-slate-900 px-6">
+    <Splash>
       <form
-        className="w-full max-w-xs"
         onSubmit={async e => {
           e.preventDefault()
           if (!value.trim() || busy) return
@@ -26,8 +27,7 @@ export default function PasscodeGate({ onSubmit }: { onSubmit: (pass: string) =>
           }
         }}
       >
-        <h1 className="text-center text-2xl font-bold text-white">Burnoff</h1>
-        <p className="mt-2 text-center text-sm text-slate-400">
+        <p className="mt-3 text-[15px] text-ink-2">
           Enter the board passcode. No account needed. You only do this once on each device.
         </p>
         <input
@@ -37,18 +37,18 @@ export default function PasscodeGate({ onSubmit }: { onSubmit: (pass: string) =>
           value={value}
           onChange={e => setValue(e.target.value)}
           placeholder="Passcode"
-          className="mt-6 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-center text-white placeholder-slate-500 outline-none focus:border-slate-500"
+          className={`${inputCls} mt-6 min-h-12 text-center`}
         />
-        {error && <p className="mt-3 text-center text-sm text-rose-400">{error}</p>}
+        {error && <p className="mt-3 text-sm font-medium text-alarm">{error}</p>}
         <button
           type="submit"
           disabled={busy}
-          className="mt-4 w-full rounded-xl bg-white py-3 font-semibold text-slate-900 disabled:opacity-50"
+          className="mt-3 min-h-12 w-full rounded-control btn-primary disabled:opacity-50"
         >
           {busy ? 'Checking…' : 'Open board'}
         </button>
       </form>
-    </main>
+    </Splash>
   )
 }
 

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const pageText = (body.pageText ?? '').trim()
   const url = (body.url ?? '').trim()
   if (pageText.length < 40) {
-    return NextResponse.json({ error: 'Paste the full page text (select all → copy on the listing page).' }, { status: 400 })
+    return NextResponse.json({ error: 'There’s too little text here to find a listing. Copy everything on the listing page and paste it here.' }, { status: 400 })
   }
 
   const client = new Anthropic() // reads ANTHROPIC_API_KEY server-side
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     })
 
     if (message.stop_reason === 'refusal' || !message.parsed_output) {
-      return NextResponse.json({ error: 'Could not extract listing data from that paste.' }, { status: 422 })
+      return NextResponse.json({ error: 'Claude couldn’t find a listing in that text. Copy everything on the listing page and try again.' }, { status: 422 })
     }
     return NextResponse.json({ parsed: message.parsed_output })
   } catch (err) {

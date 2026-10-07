@@ -84,9 +84,10 @@ export async function flushQueue(
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         authFailed = true
-      } else if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 429) {
-        // Permanently rejected (malformed, unknown board): keeping it would wedge
-        // the queue forever. Drop it and move on.
+      } else if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 429 && err.status !== 404) {
+        // Permanently rejected (malformed): keeping it would wedge the queue
+        // forever. Drop it and move on. A 404 means the board itself is gone, which
+        // the next read reports, so the edit stays queued rather than vanishing.
         onDone(q[0])
         q = q.slice(1)
         hadError = true

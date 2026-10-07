@@ -1,176 +1,229 @@
 'use client'
 
-import { ReactNode, useMemo, useState, useSyncExternalStore } from 'react'
+import { ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Parser } from '@/lib/client/parser'
 import { BoardState, BoardStore } from '@/lib/client/store'
+import { todoCount } from '@/lib/tours'
 import { Listing } from '@/lib/types'
+import AddListingButton from './AddListingButton'
 import { BoardNav, BoardNavContext, EditorSection, View } from './BoardNav'
+import { segment, segmentTrack } from './Field'
+import Icon from './Icon'
 import ListingEditor from './ListingEditor'
-import NowView from './NowView'
 import PasteParse from './PasteParse'
 import RankView from './RankView'
 import SettingsView from './SettingsView'
-import WeekView from './WeekView'
+import TodoView from './TodoView'
+import Wordmark from './Wordmark'
 
 // Places a composition root can add its own UI. Board renders them as given
 // and never asks which mode it is in.
 export type BoardSlots = {
   top?: ReactNode // above the header
-  settings?: ReactNode // below the Settings form
+  intro?: ReactNode // at the top of Ranked, e.g. a welcome
+  settings?: ReactNode // below the criteria form
   overlay?: ReactNode // on top of everything, e.g. the walkthrough
 }
 
-type Editing = { listing: Listing; section?: EditorSection; key: number }
+// The one sheet that's open, if any. A fresh key per listing open, so the editor
+// starts from the listing as it is now.
+type OpenSheet =
+  | { kind: 'paste' }
+  | { kind: 'criteria' }
+  | { kind: 'listing'; listing: Listing; section?: EditorSection; key: number }
+
+const TABS: [View, string][] = [
+  ['rank', 'Ranked'],
+  ['todo', 'To do'],
+]
 
 export default function Board({ store, parser, slots = {} }: { store: BoardStore; parser: Parser; slots?: BoardSlots }) {
   const { access, listings: all, settings, pendingIds: pending, sync } =
     useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const [view, setView] = useState<View>('rank')
-  const [editing, setEditing] = useState<Editing | null>(null)
-  const [showPaste, setShowPaste] = useState(false)
+  const [sheet, setSheet] = useState<OpenSheet | null>(null)
   const { upsertListing, removeListing, saveSettings } = store
 
-  // A fresh key per open, so the editor starts from the listing as it is now.
-  const edit = (listing: Listing, section?: EditorSection) => setEditing({ listing, section, key: Date.now() })
+  // One sheet at a time. Focus goes back to whatever opened the first one once the
+  // last one closes, even when one sheet hands over to the next (paste, then the
+  // parsed listing), and only after the board behind is no longer inert.
+  const sheetNow = useRef(sheet)
+  sheetNow.current = sheet
+  const opener = useRef<HTMLElement | null>(null)
+  const show = (next: OpenSheet | null) => {
+    if (next && !sheetNow.current && document.activeElement instanceof HTMLElement) opener.current = document.activeElement
+    setSheet(next)
+  }
+  useEffect(() => {
+    if (sheet || !opener.current) return
+    if (opener.current.isConnected) opener.current.focus({ preventScroll: true })
+    opener.current = null
+  }, [sheet])
+
+  const edit = (listing: Listing, section?: EditorSection) => show({ kind: 'listing', listing, section, key: Date.now() })
+  const close = () => show(null)
 
   const nav = useMemo<BoardNav>(
     () => ({
       go(v) {
-        setShowPaste(false)
-        setEditing(null)
+        show(null)
         setView(v)
       },
-      openPaste() {
-        setEditing(null)
-        setShowPaste(true)
-      },
+      openPaste: () => show({ kind: 'paste' }),
       openListing(id, section) {
         const listing = store.getSnapshot().listings.find(l => l.id === id)
-        if (!listing) return
-        setShowPaste(false)
-        setEditing({ listing, section, key: Date.now() })
+        if (listing) edit(listing, section)
       },
+      openCriteria: () => show({ kind: 'criteria' }),
     }),
+    // show and edit only touch refs and state setters, so they never go stale.
     [store],
   )
 
+  const todo = access === 'ready' ? todoCount(all, Date.now()) : 0
+  const tabs = (
+    <nav aria-label="Views" className={segmentTrack}>
+      {TABS.map(([v, label]) => (
+        <button
+          key={v}
+          aria-current={view === v ? 'page' : undefined}
+          data-tour={`tab-${v}`}
+          onClick={() => setView(v)}
+          className={`${segment(view === v)} transition-colors`}
+        >
+          {label}
+          {v === 'todo' && todo > 0 && (
+            <span className="ml-1.5 inline-grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1.5 align-[1px] text-xs font-semibold text-paper">
+              {todo}
+              <span className="sr-only"> to do</span>
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
+  )
+
+  const syncStatus = sync && <SyncStatus sync={sync} onRefresh={() => void store.refresh()} />
+
+  // A phone sheet covers the screen, so the board behind it goes inert and Tab
+  // stays in the sheet. On desktop the list stays usable beside the panel. The
+  // overlay slot is left alone: the walkthrough drives sheets from on top.
+  const wide = useWide()
+  const behind = !!sheet && !wide
+
   return (
     <BoardNavContext.Provider value={nav}>
-      <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
-        {slots.top}
-        <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
-          <h1 className="text-base font-bold tracking-tight">Burnoff</h1>
-          <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-            {sync && sync.pending > 0 && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
-                {sync.pending} pending
-              </span>
-            )}
-            {sync?.status === 'offline' && <span className="font-medium text-rose-600">offline</span>}
-            {sync?.status === 'error' && <span className="font-medium text-amber-600">retrying…</span>}
-            {sync && (
-              <button
-                onClick={() => void store.refresh()}
-                className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-medium text-slate-600 active:bg-slate-100"
-                aria-label="Sync now"
-              >
-                {sync.status === 'syncing' ? '…' : '⟳'}
-                {sync.lastSync && sync.status !== 'syncing' && (
-                  <span className="ml-1">{ageLabel(sync.lastSync)}</span>
-                )}
-              </button>
-            )}
+      <div className="flex min-h-dvh flex-col lg:h-dvh">
+        {slots.top && <div inert={behind}>{slots.top}</div>}
+
+        {/* Desktop: one top bar with the tabs and Add listing. */}
+        <header className="hidden h-[68px] flex-none items-center gap-7 border-b border-line px-8 lg:flex">
+          <Wordmark />
+          <div className="w-60">{tabs}</div>
+          <div className="ml-auto flex items-center gap-3">
+            {syncStatus}
+            <AddListingButton size="bar" tourAnchor="add" />
           </div>
         </header>
 
-        <main className="flex-1 px-3 pb-28 pt-3">
-          {typeof access === 'object' ? (
-            <Unreachable reason={access.unreachable} sync={sync} onRetry={() => void store.refresh()} />
-          ) : access !== 'ready' ? (
-            <p className="py-16 text-center text-sm text-slate-400">Loading board…</p>
-          ) : view === 'rank' ? (
-            <RankView
-              listings={all}
-              settings={settings}
-              pendingIds={pending}
-              onOpen={l => edit(l)}
-              onToggleParking={() =>
-                saveSettings({ ...settings, criteria: { ...settings.criteria, includeParking: !settings.criteria.includeParking } })
-              }
-            />
-          ) : view === 'now' ? (
-            <NowView listings={all} settings={settings} onOpen={l => edit(l)} />
-          ) : view === 'week' ? (
-            <WeekView listings={all} settings={settings} onOpen={l => edit(l)} />
-          ) : (
-            <>
-              <SettingsView settings={settings} onSave={saveSettings} />
-              {slots.settings && <div className="mt-6">{slots.settings}</div>}
-            </>
+        {/* Mobile: wordmark, then tabs that stick while the list scrolls. */}
+        <header inert={behind} className="flex items-center gap-2 px-4 pb-2.5 pt-3.5 lg:hidden">
+          <Wordmark />
+          <div className="ml-auto">{syncStatus}</div>
+        </header>
+        <div inert={behind} className="sticky top-0 z-20 bg-fog px-4 pb-3 pt-1.5 lg:hidden">{tabs}</div>
+
+        {/* Desktop is an app layout: the list scrolls in its own column and an
+            open sheet docks beside it as a panel. On a phone both are plain
+            page flow and the sheet covers the screen. */}
+        <div className="flex-1 lg:flex lg:min-h-0">
+          <div inert={behind} className="lg:min-w-0 lg:flex-1 lg:overflow-y-auto">
+            <main className="mx-auto w-full max-w-[640px] px-4 pb-32 pt-1 lg:pb-16 lg:pt-6">
+              {typeof access === 'object' ? (
+                <Unreachable reason={access.unreachable} sync={sync} onRetry={() => void store.refresh()} />
+              ) : access !== 'ready' ? (
+                <p className="py-16 text-center text-sm text-ink-2">Loading board…</p>
+              ) : view === 'rank' ? (
+                <>
+                  {slots.intro}
+                  <RankView
+                    listings={all}
+                    settings={settings}
+                    pendingIds={pending}
+                    selectedId={sheet?.kind === 'listing' ? sheet.listing.id : undefined}
+                    onOpen={l => edit(l)}
+                  />
+                </>
+              ) : (
+                <TodoView listings={all} settings={settings} onOpen={edit} />
+              )}
+            </main>
+          </div>
+
+          {sheet && (
+            <div className="lg:w-[520px] lg:flex-none lg:py-4 lg:pr-6">
+              {sheet.kind === 'criteria' && (
+                <SettingsView settings={settings} onSave={saveSettings} onClose={close}>
+                  {slots.settings}
+                </SettingsView>
+              )}
+
+              {sheet.kind === 'paste' && (
+                <PasteParse
+                  parser={parser}
+                  onClose={close}
+                  onParsed={l => edit(l)} // the prefilled editor; nothing is saved until Save
+                />
+              )}
+
+              {sheet.kind === 'listing' && (
+                <ListingEditor
+                  key={sheet.key}
+                  listing={sheet.listing}
+                  section={sheet.section}
+                  settings={settings}
+                  isNew={!all.some(l => l.id === sheet.listing.id)}
+                  onClose={close}
+                  onSave={l => {
+                    upsertListing(l)
+                    close()
+                  }}
+                  onDelete={id => {
+                    removeListing(id)
+                    close()
+                  }}
+                />
+              )}
+            </div>
           )}
-        </main>
+        </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-2xl items-stretch border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
-          {(
-            [
-              ['rank', 'Rank'],
-              ['now', 'Now'],
-              ['week', 'Week'],
-              ['settings', 'Settings'],
-            ] as [View, string][]
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              data-tour={`tab-${v}`}
-              onClick={() => setView(v)}
-              className={`flex-1 py-3.5 text-sm font-medium ${view === v ? 'text-slate-900' : 'text-slate-400'}`}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            onClick={() => setShowPaste(true)}
-            data-tour="add"
-            className="my-1.5 mr-2 flex-none rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white active:bg-slate-700"
-            aria-label="Add listing"
-          >
-            + Add
-          </button>
-        </nav>
-
-        {showPaste && (
-          <PasteParse
-            parser={parser}
-            onClose={() => setShowPaste(false)}
-            onParsed={l => {
-              setShowPaste(false)
-              edit(l) // open prefilled editor; nothing saved until Save
-            }}
-          />
-        )}
-
-        {editing && (
-          <ListingEditor
-            key={editing.key}
-            listing={editing.listing}
-            section={editing.section}
-            settings={settings}
-            isNew={!all.some(l => l.id === editing.listing.id)}
-            onClose={() => setEditing(null)}
-            onSave={l => {
-              upsertListing(l)
-              setEditing(null)
-            }}
-            onDelete={id => {
-              removeListing(id)
-              setEditing(null)
-            }}
-          />
-        )}
+        <div inert={behind} className="fixed bottom-[calc(18px+env(safe-area-inset-bottom))] right-4 z-20 lg:hidden">
+          <AddListingButton size="floating" tourAnchor="add" />
+        </div>
 
         {slots.overlay}
       </div>
     </BoardNavContext.Provider>
+  )
+}
+
+// Real mode only: unsynced edits, connection trouble, and a manual refresh.
+function SyncStatus({ sync, onRefresh }: { sync: NonNullable<BoardState['sync']>; onRefresh: () => void }) {
+  return (
+    <div className="flex items-center gap-2 text-[13px] text-ink-2">
+      {sync.pending > 0 && <span className="font-medium">{sync.pending} not synced</span>}
+      {sync.status === 'offline' && <span className="font-semibold text-alarm">Offline</span>}
+      {sync.status === 'error' && <span className="font-medium">Retrying…</span>}
+      <button
+        onClick={onRefresh}
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 font-medium text-ink-2 control-outline active:bg-fog-2"
+        aria-label="Sync now"
+      >
+        <Icon name="sync" size={16} className={sync.status === 'syncing' ? 'animate-spin' : ''} />
+        {sync.lastSync && sync.status !== 'syncing' && <span>{ageLabel(sync.lastSync)}</span>}
+      </button>
+    </div>
   )
 }
 
@@ -188,27 +241,38 @@ function Unreachable({
   const offline = sync?.status === 'offline'
   return (
     <div className="mx-auto max-w-xs py-16 text-center">
-      <h2 className="text-base font-semibold">Can’t reach the board</h2>
-      <p className="mt-2 text-sm text-slate-500">
+      <h2 className="font-display text-xl font-semibold">Can’t reach the board</h2>
+      <p className="mt-2 text-[15px] text-ink-2">
         {offline
           ? 'This device looks offline. Check your connection and try again.'
           : 'The server isn’t responding properly right now. Try again in a minute.'}
       </p>
-      {!offline && <p className="mt-1 text-xs text-slate-400">{reason}</p>}
+      {!offline && <p className="mt-1 text-[13px] text-ink-2">{reason}</p>}
       {sync && sync.pending > 0 && (
-        <p className="mt-3 text-xs text-amber-700">
+        <p className="mt-3 text-[13px] text-ink">
           {sync.pending} {sync.pending === 1 ? 'edit is' : 'edits are'} saved on this device and will send once it’s back.
         </p>
       )}
       <button
         onClick={onRetry}
         disabled={busy}
-        className="mt-5 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white active:bg-slate-700 disabled:opacity-50"
+        className="mt-5 min-h-12 rounded-control px-6 btn-primary disabled:opacity-50"
       >
         {busy ? 'Trying…' : 'Try again'}
       </button>
     </div>
   )
+}
+
+// Matches Tailwind's lg breakpoint, where sheets become a side panel.
+const WIDE = '(min-width: 1024px)'
+function subscribeWide(onChange: () => void) {
+  const mq = window.matchMedia(WIDE)
+  mq.addEventListener('change', onChange)
+  return () => mq.removeEventListener('change', onChange)
+}
+function useWide(): boolean {
+  return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false)
 }
 
 function ageLabel(ts: number): string {

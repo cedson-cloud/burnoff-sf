@@ -22,7 +22,7 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    write queue, but a cold open with no connectivity shows nothing. A small SW caching the shell
    would fix that; it wasn't worth the cache-invalidation tax during daily-deploy season.
 
-5. **Scoring curves are hardcoded shapes.** The thresholds live in Settings but the interpolation
+5. **Scoring curves are hardcoded shapes.** The thresholds live in Your criteria but the interpolation
    (linear, the 0.88/0.6/1.1 knees) lives in `lib/score.ts`. Fine while the two of us agree on
    the model; a portfolio version would expose the curve constants or at least document them in
    the UI.
@@ -40,12 +40,12 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    numbers and dates properly and validate at the API boundary with zod (which is already a
    dependency).
 
-9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 86
-   unit tests (`node:test`, no framework) across 8 files: the write queue and poll merge against
+9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 100
+   unit tests (`node:test`, no framework) across 9 files: the write queue and poll merge against
    a fake server (edits made mid-flush survive, a poll never overwrites a pending edit, a 401
-   locks while a 5xx shows "unreachable"), the passcode and mode guards, the parse length caps, the demo's parse
-   fallback, the browser-only store's import/reset, and the demo seed (no real-looking contact
-   data, unknowns flagged). `npm run smoke` covers the API contract and a real parse call end to
+   locks while a 5xx shows "unreachable" and a 404 on first load shows "No board at this link"), the passcode and mode guards, the parse length caps, the demo's parse
+   fallback, the browser-only store's import/reset, the demo seed (no real-looking contact
+   data, unknowns flagged), To do's queues and the message each status opens on. `npm run smoke` covers the API contract and a real parse call end to
    end, and the live demo was checked with curl and on a phone before launch. The gaps: `lib/score.ts` has
    no tests of its own (only a sanity check through the demo seed), and there are no browser
    tests, so layout and the walkthrough are verified by hand.

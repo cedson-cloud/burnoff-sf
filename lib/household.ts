@@ -1,3 +1,4 @@
+import { cap } from './format'
 import { Profile } from './types'
 
 export type Household = {
@@ -13,8 +14,6 @@ export type Household = {
   // Short UI label ("Sam", "My sister"); '' when solo
   companionLabel: string
 }
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 // The one place that decides solo vs. pair. Messages refer to the companion by
 // phrase, then name; with neither, the search is solo and copy speaks as "I".

@@ -8,10 +8,10 @@ Burnoff is a phone-first board for apartment hunting in San Francisco, alone or 
 
 <!-- Screenshots: the live demo at a 390x844 phone viewport. Files are in docs/screenshots/. -->
 <p>
-  <img src="docs/screenshots/rank.jpg" width="200" alt="Rank view: listings sorted by fit score, with amber flags on unknowns">
-  <img src="docs/screenshots/parse.jpg" width="200" alt="A pasted listing parsed into a prefilled form">
-  <img src="docs/screenshots/messages.jpg" width="200" alt="Ready-to-send inquiry message for a listing">
-  <img src="docs/screenshots/now.jpg" width="200" alt="Now view: what needs doing today">
+  <img src="docs/screenshots/rank.jpg" width="200" alt="Ranked tab: listings sorted by fit score out of 100, each with five factor bars; unknown factors are hatched fog marked with a question mark">
+  <img src="docs/screenshots/parse.jpg" width="200" alt="A pasted listing filled in by Claude: its score, all-in cost, factor breakdown and next step">
+  <img src="docs/screenshots/messages.jpg" width="200" alt="A listing’s first message, with the private owner or property manager switch above it">
+  <img src="docs/screenshots/now.jpg" width="200" alt="To do tab: a tour to update, this week’s tours on a seven-day strip, and messages to send">
 </p>
 
 ## Why I built it
@@ -20,7 +20,7 @@ SF fog (locals call it Karl) burns off when it decides to. A listing has its own
 
 On August 30 I got to San Francisco with a week to find an apartment. I asked Claude for a simple app my partner and I could both use to track tours and outreach. It built a shared board as an artifact and told me I didn't need anything more. I pushed back, because the loop eating my day was finding a listing, retyping a message, sending it, and forgetting who I'd already chased.
 
-The artifact went through about seven versions in two days. Each rebuild got fresh storage and a new link to re-send to my partner, who needed a Claude account just to open it. Zillow also rate-limited Claude in the middle of a task. So it became a real app on Vercel, built with Claude Code from a written spec. One rule came straight from the instructions in my first planning chat: "Unknown is an acceptable answer. Fabrication is not." It became the parse prompt and the amber flag on every unknown.
+The artifact went through about seven versions in two days. Each rebuild got fresh storage and a new link to re-send to my partner, who needed a Claude account just to open it. Zillow also rate-limited Claude in the middle of a task. So it became a real app on Vercel, built with Claude Code from a written spec. One rule came straight from the instructions in my first planning chat: "Unknown is an acceptable answer. Fabrication is not." It became the parse prompt and the fog on every unknown.
 
 Our application was approved on September 2, and I signed on September 3.
 
@@ -40,10 +40,10 @@ Good units often go in a couple of days. These are the jobs a hunter has in the 
 
 1. **Capture the listing from anywhere.** Copy the page text, paste it in, and one Claude call fills in rent, fees, square footage, parking, each unit, move-in date and a "hook" (one detail worth mentioning in your first message). It works on Zillow, Craigslist, a building's own site, or anything else with text on it. Anything the page doesn't say stays blank.
 2. **Know what it really costs.** Some buildings quote base rent, some include required fees, and almost none include parking. Burnoff adds rent, plus required fees when the price is base rent, plus parking if you count it, so every listing compares on the same number.
-3. **Score it before contacting anyone.** 100 points from your own criteria: cost 35, parking 20, commute 20, size 15, move-in 10, rescaled to 80 when you don't need parking. Unknowns get half credit and an amber flag, so a listing with missing details stays in the running and shows you what to ask.
+3. **Score it before contacting anyone.** 100 points from your own criteria: cost 35, parking 20, commute 20, size 15, move-in 10, rescaled to 80 when you don't need parking. Unknowns get half credit and show as fog, so a listing with missing details stays in the running and shows you what to ask.
 4. **Send a first message that doesn't read like the other fifty.** Individual owners decide on people and speed, while property managers decide on paperwork and turnaround, so the first inquiry has a version for each. The listing's hook drops into it. There are also drafts for the 24-hour nudge, tour confirmation, "we want it", pinning down the all-in number, and the backup ask.
-5. **Start a clock.** Tap Sent it and the listing is timestamped. After 24 hours of silence it shows up in the Now tab's nudge queue, next to replies with no tour booked and tours whose date has passed.
-6. **Book the tour and see the week.** Week is a seven-day tour calendar that skips a day you've blocked.
+5. **Start a clock.** Tap Copy and mark sent and the listing is timestamped. After 24 hours of silence it shows up under To do as a nudge to send, next to replies with no tour booked and tours whose date has passed.
+6. **Book the tour and see the week.** To do shows the next seven days of tours and crosses out a day you've blocked.
 7. **Keep whoever you're searching with in sync.** One shared board on both phones, with a URL and a passcode instead of accounts.
 
 Edits show up right away and wait on your phone until the server confirms them, so a dead zone on Muni doesn't lose anything. Add it to your home screen and it opens like an app.
@@ -58,7 +58,7 @@ Edits show up right away and wait on your phone until the server confirms them, 
 
 **Free tiers are part of the spec.** Vercel Hobby, the Upstash free plan, and one model call per parse. Polling stops when the tab is hidden so two phones stay inside Redis's free limits.
 
-**No application paperwork.** With no real accounts, the app shouldn't hold anything you'd hate to see leak. Settings says not to store SSNs, bank numbers or income documents. Those go straight to the landlord.
+**No application paperwork.** With no real accounts, the app shouldn't hold anything you'd hate to see leak. Your criteria says not to store SSNs, bank numbers or income documents. Those go straight to the landlord.
 
 **Designed to run unattended.** The public demo has no database to archive and no passcode to leak. Anthropic enforces a monthly spend cap on the demo's key, the server caps how much pasted text it sends, and if a live parse fails for any reason the demo shows a saved sample with a note saying so.
 
@@ -102,7 +102,7 @@ You don't need to know how to code. You need about 20 minutes and free accounts 
 4. Add the database. In your Vercel project, open Storage, create a database, and pick Upstash for Redis on the free plan. If it asks for an environment variable prefix, use `KV`. Connect it to your project.
 5. Redeploy. Under Deployments, open the latest one, choose Redeploy, and wait for it to finish so the app picks up the database.
 6. Open your board at your site's address plus `/b/` and your board ID, like `your-project.vercel.app/b/<BOARD_ID>`, and enter the passcode. The plain site address never shows strangers where your board is, so use the full link the first time on each device. After that, the plain address opens your board on that device.
-7. Fill in Settings: your budget, commute anchor, move-in window and name. If you're searching with someone, add them and how messages should describe them.
+7. Fill in Your criteria (the button at the top of the Ranked tab): your budget, commute anchor, move-in window and name. If you're searching with someone, add them and how messages should describe them.
 8. Put it on your home screen. On iPhone in Safari, tap Share, then Add to Home Screen. On Android in Chrome, tap ⋮, then Add to Home screen.
 9. If you're searching with someone, send them the board link (the one with `/b/`) and the passcode. That's their whole setup.
 
@@ -145,11 +145,11 @@ Stack: Next.js 15, React 19, TypeScript, Tailwind v4, Upstash Redis, and the Ant
 
 ## Honest limitations
 
-It was built for one search over a couple of weeks, by two people, and some choices stop working past that. The passcode is thin protection. If two people edit the same listing offline, the later save wins without a warning. Sync polls every 15 seconds instead of pushing. Scoring thresholds are in Settings, but the curve shapes are hardcoded. Real mode has no export button, and with no signal a cold open shows nothing. Each one, with the fix I'd make, is in [DECISIONS.md](DECISIONS.md).
+It was built for one search over a couple of weeks, by two people, and some choices stop working past that. The passcode is thin protection. If two people edit the same listing offline, the later save wins without a warning. Sync polls every 15 seconds instead of pushing. Scoring thresholds are in Your criteria, but the curve shapes are hardcoded. Real mode has no export button, and with no signal a cold open shows nothing. Each one, with the fix I'd make, is in [DECISIONS.md](DECISIONS.md).
 
 ## Privacy
 
-The repo has no real names, phone numbers or addresses. Your details live in your own database, entered through Settings. In the demo, your board never leaves your browser. Text you paste for parsing goes through the server to Anthropic, and the app doesn't store it. Application paperwork stays out of the app entirely.
+The repo has no real names, phone numbers or addresses. Your details live in your own database, entered through Your criteria. In the demo, your board never leaves your browser. Text you paste for parsing goes through the server to Anthropic, and the app doesn't store it. Application paperwork stays out of the app entirely.
 
 ## License
 

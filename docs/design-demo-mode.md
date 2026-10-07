@@ -10,7 +10,8 @@ The goal is to choose the mode in as few places as possible, without `if (demo)`
 spread through the code. That works out to **one switch point per tier**, and each one reads
 the mode once:
 
-1. **Client:** the composition root (`app/page.tsx`) renders `<DemoApp />` or `<RealApp />`.
+1. **Client:** the composition roots pick the tree: `app/page.tsx` renders `<DemoApp />` or
+   `RootRedirect`, and `app/b/[boardId]/page.tsx` renders `<RealApp />`.
    No client component reads the mode.
 2. **Server:** the guards in `lib/auth.ts` decide what the API allows. The browser can't stop
    itself from calling Redis routes or spending parse tokens, so the server enforces the mode
@@ -49,7 +50,7 @@ behind a small interface, and each mode gets its own adapter.
 
 ```ts
 type BoardState = {
-  access: 'loading' | 'ready' | 'locked' | { unreachable: string }
+  access: 'loading' | 'ready' | 'locked' | 'missing' | { unreachable: string }
   listings: Listing[]
   settings: Settings
   pendingIds: Set<string>
@@ -62,7 +63,7 @@ interface BoardStore {
   upsertListing(l: Listing): void
   removeListing(id: string): void
   saveSettings(s: Settings): void
-  refresh(): void
+  refresh(): Promise<void>
 }
 ```
 
@@ -73,7 +74,8 @@ Board uses it through `useSyncExternalStore` and needs to know nothing else abou
 - the write queue, including coalescing and serial flushing
 - the poll merge that must not overwrite listings with pending ops
 - 15s polling while the tab is visible, plus re-syncing on reconnect and on tab return
-- `access: 'locked'` on a 401, and `{ unreachable }` on a 5xx or network error. This is the
+- `access: 'locked'` on a 401, `'missing'` on a 404 before the board has loaded, and
+  `{ unreachable }` on a 5xx or network error. This is the
   phase-1 fix that lets the lock screen tell a bad passcode apart from a server or database
   error.
 
@@ -105,15 +107,16 @@ interface Parser {
 
 ## Client switch point: composition roots
 
-`app/page.tsx` is a server component. It reads `mode()` once and renders one of two trees. In
-demo mode, `/b/[id]` redirects to `/`.
+`app/page.tsx` is a server component. It reads `mode()` once and renders `DemoApp` or
+`RootRedirect`; `app/b/[boardId]/page.tsx` renders `RealApp`. In demo mode, `/b/[id]` redirects to `/`.
 
 | | `RealApp` | `DemoApp` |
 |---|---|---|
 | store | `remoteStore`, recreated on unlock | `localStore({ seed: demoSeed(new Date()) })` |
 | parser | `liveParser(pass)` | `withSampleFallback(liveParser(null), SAMPLES)` |
-| lock state | `PasscodeGate` when `access` is `locked`; an "unreachable" screen otherwise | never locks |
-| `slots.top` | nothing | `DemoBanner`: "data stays in your browser · Deploy your own" |
+| lock state | `PasscodeGate` when `access` is `locked`; "No board at this link" when `missing` (and it forgets the stored `board-id` if it names this board); an "unreachable" screen otherwise | never locks |
+| `slots.top` | nothing | `DemoBanner`: "Sample board. Your changes stay in this browser.", Deploy your own, and a ? that reopens the tour |
+| `slots.intro` | nothing | `Welcome`: what Burnoff is, with Add listing and Take the tour; dismissed per browser |
 | `slots.settings` | nothing | `DemoDataControls`: Reset, Export, Import |
 | `slots.overlay` | nothing | `Walkthrough` |
 
@@ -131,13 +134,14 @@ This keeps the shared interface small.
 **Walkthrough.** Board renders its slots inside a small `BoardNav` context:
 
 ```ts
-{ go(view), openPaste(), openListing(id, section?) }
+{ go(view), openPaste(), openListing(id, section?), openCriteria() }
 ```
 
 Board also puts `data-tour` anchors on its tabs and sections. These are harmless in real mode.
-The walkthrough (Rank → Parse → Messages → Now) moves through the board using only that
-context, never Board's internals. It is skippable, shows once per browser, and a "?" button
-reopens it.
+The walkthrough (Ranked → Add listing → the message → To do) moves through the board using
+only that context, never Board's internals. It is skippable. It opens from the welcome block's
+"Take the tour" or the banner's "?", never on its own, and its card sits beside what it points
+at rather than over it.
 
 ## Server switch point: `lib/mode.ts` + `lib/auth.ts`
 
@@ -214,7 +218,7 @@ fictional pair of friends is just seed data running through the same code.
 
 This is a pure function that returns `BoardData`:
 
-- 8–10 invented SF listings, some with unknowns that show amber
+- 8–10 invented SF listings, some with unknowns that show as fog
 - tour dates relative to `today`
 - the friends' profile
 

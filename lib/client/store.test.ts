@@ -205,9 +205,43 @@ describe('remoteStore', () => {
     assert.equal(store.getSnapshot().sync?.status, 'offline')
   })
 
+  test('a 404 before the first load means the board is missing', async () => {
+    const { server, store } = setup()
+    server.failRead = new ApiError(404, 'Unknown board')
+    await store.refresh()
+    assert.equal(store.getSnapshot().access, 'missing')
+  })
+
+  test('a missing board stops syncing', async () => {
+    const { server, store } = setup()
+    server.failRead = new ApiError(404, 'Unknown board')
+    await store.refresh()
+    server.failRead = null
+    await store.refresh()
+    assert.equal(store.getSnapshot().access, 'missing')
+  })
+
+  test('a 404 on a queued write keeps the edit queued', async () => {
+    const { server, store, queue } = setup(fakeServer([listing('a')]))
+    await store.refresh()
+    server.failWrites = new ApiError(404, 'Unknown board')
+    store.upsertListing(listing('b'))
+    await store.refresh()
+    assert.equal(queue().length, 1)
+    assert.equal(store.getSnapshot().access, 'ready')
+  })
+
+  test('a 404 after the board has loaded keeps it ready', async () => {
+    const { server, store } = setup(fakeServer([listing('a')]))
+    await store.refresh()
+    server.failRead = new ApiError(404, 'Unknown board')
+    await store.refresh()
+    assert.equal(store.getSnapshot().access, 'ready')
+  })
+
   test('only a 401 locks: a retry from unreachable can still lock', async () => {
     const { server, store } = setup()
-    for (const status of [0, 404, 429, 500, 503]) {
+    for (const status of [0, 429, 500, 503]) {
       server.failRead = new ApiError(status, `status ${status}`)
       await store.refresh()
       assert.notEqual(store.getSnapshot().access, 'locked', `status ${status}`)

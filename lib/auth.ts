@@ -36,6 +36,9 @@ function checkBoard(boardId: string): NextResponse | null {
 
 // Every board route calls this first. Demo mode has no server-side board (it
 // lives in the visitor's browser), so the routes don't exist there.
+// The passcode is checked before the board id, and the client relies on that
+// order: a 404 with a passcode means "right passcode, no such board", which
+// shows "No board at this link" instead of the passcode prompt.
 export function guardBoard(req: Request, boardId: string): NextResponse | null {
   if (mode() === 'demo') return NextResponse.json({ error: 'Unknown board' }, { status: 404 })
   return checkPass(req) ?? checkBoard(boardId)

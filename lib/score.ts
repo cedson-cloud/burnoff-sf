@@ -73,7 +73,6 @@ export type Factor = {
   points: number
   max: number
   unknown: boolean // true when this score is half credit for missing data, not a real measurement
-  note: string
 }
 
 export type ScoreResult = {
@@ -92,14 +91,14 @@ export function scoreListing(l: Listing, c: Criteria, now = new Date()): ScoreRe
 
   // Cost — 35. Full at 12% under target, linear to 0 at the hard ceiling.
   if (cost === null) {
-    factors.push({ key: 'cost', label: 'Cost', points: 17.5, max: 35, unknown: true, note: 'no rent data' })
+    factors.push({ key: 'cost', label: 'Cost', points: 17.5, max: 35, unknown: true })
   } else {
     const full = 0.88 * c.targetAllIn
     let pts: number
     if (cost <= full) pts = 35
     else if (cost >= c.hardCeiling) pts = 0
     else pts = 35 * clamp01((c.hardCeiling - cost) / Math.max(1, c.hardCeiling - full))
-    factors.push({ key: 'cost', label: 'Cost', points: pts, max: 35, unknown: false, note: `$${Math.round(cost)} all-in` })
+    factors.push({ key: 'cost', label: 'Cost', points: pts, max: 35, unknown: false })
   }
 
   // Parking — 20, only when parking is required.
@@ -108,41 +107,40 @@ export function scoreListing(l: Listing, c: Criteria, now = new Date()): ScoreRe
     factors.push({
       key: 'parking', label: 'Parking', points: pts, max: 20,
       unknown: l.parkingAvail === 'unknown',
-      note: l.parkingAvail === 'unknown' ? 'unconfirmed, ask' : l.parkingAvail,
     })
   }
 
   // Commute — 20. Full at 60% of max acceptable, linear to 0 at max.
   const commute = num(l.commuteMin)
   if (commute === null) {
-    factors.push({ key: 'commute', label: 'Commute', points: 10, max: 20, unknown: true, note: 'not measured' })
+    factors.push({ key: 'commute', label: 'Commute', points: 10, max: 20, unknown: true })
   } else {
     const full = 0.6 * c.maxCommuteMin
     let pts: number
     if (commute <= full) pts = 20
     else pts = 20 * clamp01((c.maxCommuteMin - commute) / Math.max(1, c.maxCommuteMin - full))
-    factors.push({ key: 'commute', label: 'Commute', points: pts, max: 20, unknown: false, note: `${commute} min` })
+    factors.push({ key: 'commute', label: 'Commute', points: pts, max: 20, unknown: false })
   }
 
   // Size — 15. Full at 10% over minimum, linear to 0 at 20% under minimum.
   const sqft = u ? num(u.sqft) : null
   if (sqft === null) {
-    factors.push({ key: 'size', label: 'Size', points: 7.5, max: 15, unknown: true, note: 'no sq ft' })
+    factors.push({ key: 'size', label: 'Size', points: 7.5, max: 15, unknown: true })
   } else {
     const full = 1.1 * c.minSqft
     const zero = 0.8 * c.minSqft
     const pts = 15 * clamp01((sqft - zero) / Math.max(1, full - zero))
-    factors.push({ key: 'size', label: 'Size', points: pts, max: 15, unknown: false, note: `${sqft} sq ft` })
+    factors.push({ key: 'size', label: 'Size', points: pts, max: 15, unknown: false })
   }
 
   // Timing — 10. Available by the end of the move-in window: 10. Later: 2. Unknown: 5.
   const availDate = u ? parseAvail(u.avail, now) : null
   const windowEnd = c.moveInEnd ? new Date(c.moveInEnd + 'T23:59:59') : null
   if (!availDate || !windowEnd) {
-    factors.push({ key: 'timing', label: 'Timing', points: 5, max: 10, unknown: true, note: availDate ? 'window not set' : 'no avail date' })
+    factors.push({ key: 'timing', label: 'Move-in', points: 5, max: 10, unknown: true })
   } else {
     const inWindow = availDate.getTime() <= windowEnd.getTime()
-    factors.push({ key: 'timing', label: 'Timing', points: inWindow ? 10 : 2, max: 10, unknown: false, note: u!.avail })
+    factors.push({ key: 'timing', label: 'Move-in', points: inWindow ? 10 : 2, max: 10, unknown: false })
   }
 
   const sum = factors.reduce((a, f) => a + f.points, 0)

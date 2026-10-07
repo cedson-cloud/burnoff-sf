@@ -1,14 +1,109 @@
 @import "tailwindcss";
 
-html {
-  -webkit-text-size-adjust: 100%;
+/* Fog morning. Raw values live on :root so a dark theme can redefine them later;
+   @theme inline maps them to Tailwind utilities (bg-paper, text-ink-2, …). */
+:root {
+  --fog: #e6e4df;        /* page: warm fog gray */
+  --fog-2: #dad8d2;      /* demo strip, pressed rows */
+  --paper: #f7f6f3;      /* raised surfaces: cards, sheets */
+  --well: #eeede9;       /* inset areas: message text, tracks on paper */
+  --field: #ffffff;      /* text inputs */
+  --ink: #24282c;        /* text, known-value bars */
+  --ink-2: #585d62;      /* secondary text: 5.2:1 on fog, 6.2:1 on paper */
+  --line: rgb(36 40 44 / 0.1);
+  --line-strong: rgb(36 40 44 / 0.22); /* control outlines */
+  --scrim: rgb(36 40 44 / 0.45); /* dims the board behind the walkthrough */
+  --sun: #f2a33a;        /* the one accent: score mark, primary actions (ink text, 7.1:1) */
+  --sun-press: #e08f22;
+  /* Unknowns. Cool against the warm page so fog reads as a different material.
+     Never color alone: every fogged value also says "?" or "Not known". */
+  --haze: #aeb8c0;
+  --haze-soft: #d3d9de;
+  --haze-ink: #56636d;   /* text on fog: 4.9:1 on the fog note, 5.7:1 on paper */
+  --haze-wash: #e2e5e7;  /* fog note background */
+  /* Status. Only the ends of the pipeline get a color, always with an icon and words. */
+  --alarm: #b3261e;      /* past due, delete: 6.1:1 on paper */
+  --good: #2e6b3f;       /* approved: 5.9:1 on paper */
 }
 
-body {
-  overscroll-behavior-y: none;
+@theme inline {
+  --color-fog: var(--fog);
+  --color-fog-2: var(--fog-2);
+  --color-paper: var(--paper);
+  --color-well: var(--well);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-sun: var(--sun);
+  --color-sun-press: var(--sun-press);
+  --color-haze: var(--haze);
+  --color-haze-soft: var(--haze-soft);
+  --color-haze-ink: var(--haze-ink);
+  --color-haze-wash: var(--haze-wash);
+  --color-alarm: var(--alarm);
+  --color-good: var(--good);
+
+  /* Red Hat Display (next/font, see layout.tsx) for headlines and the score; system sans for the rest. */
+  --font-display: var(--font-red-hat), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* The score is the biggest thing on a card. Light weight at these sizes. */
+  --text-score: 3.875rem;
+  --text-score--line-height: 0.86;
+  --text-score-lg: 5.25rem;
+  --text-score-lg--line-height: 0.86;
+
+  /* Radius by role: sheet > card > control. */
+  --radius-card: 22px;
+  --radius-control: 12px;
+  --radius-inset: 14px; /* wells inside a card: message text, notes, segmented tracks */
+
+  --shadow-float: 0 8px 24px rgb(138 75 0 / 0.28), 0 2px 4px rgb(36 40 44 / 0.12);
+  --shadow-panel: 0 0 0 1px var(--line), 0 18px 48px rgb(36 40 44 / 0.1);
+  --shadow-raised: 0 1px 2px rgb(36 40 44 / 0.14), 0 0 0 0.5px rgb(36 40 44 / 0.08);
+  --shadow-pop: 0 18px 48px rgb(36 40 44 / 0.25);
 }
 
-/* iOS: prevent zoom-on-focus by keeping form text >= 16px */
+/* Fog for an unknown factor: hatched cool haze at 135°, a texture rather than a
+   hue, so it still reads in grayscale and for color-blind readers. */
+@utility fog-hatch {
+  background-image: repeating-linear-gradient(135deg, var(--haze) 0 3px, var(--haze-soft) 3px 7px);
+}
+
+/* The outline on secondary buttons and chips. */
+@utility control-outline {
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+/* The primary action: sun fill, ink text. Size and radius come from the caller. */
+@utility btn-primary {
+  background-color: var(--sun);
+  color: var(--ink);
+  font-weight: 600;
+  &:active {
+    background-color: var(--sun-press);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    overscroll-behavior-y: none;
+    background: var(--fog);
+    color: var(--ink);
+  }
+  :focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+/* iOS: prevent zoom-on-focus by keeping form text >= 16px. Unlayered on purpose,
+   so it beats text-sm on inputs. */
 input, select, textarea {
   font-size: 16px;
 }
@@ -16,5 +111,12 @@ input, select, textarea {
 @media (min-width: 640px) {
   input, select, textarea {
     font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

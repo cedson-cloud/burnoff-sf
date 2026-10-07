@@ -1,20 +1,21 @@
+import { cap, usd } from './format'
 import { household } from './household'
 import { allIn, num, targetUnit } from './score'
-import { Listing, Profile, Settings } from './types'
+import { Listing, ListingStatus, Profile, Settings } from './types'
+
+export type TemplateId = 'inq-individual' | 'inq-mgmt' | 'nudge-24h' | 'confirm-tour' | 'post-tour' | 'pin-all-in' | 'backup'
 
 export type Template = {
-  id: string
-  title: string
-  // 'initial' templates advance status to Inquired and stamp inquiredAt on "Sent it"
+  id: TemplateId
+  title: string // the name in the "Which message" list
+  // 'initial' is the first message: "Copy and mark sent" on a Lead moves it to
+  // Inquired and stamps inquiredAt, which starts the nudge timer.
   kind: 'initial' | 'followup'
   body: string
 }
 
 const fallback = (v: string | undefined, alt: string) => (v && v.trim() ? v.trim() : alt)
-// $5,471 and $21.50, not $5471 and $21.5
-const usd = (n: number) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-// Free text from Settings, ending in sentence punctuation so it can be followed by more copy.
+// Free text from Your criteria, ending in sentence punctuation so it can be followed by more copy.
 const sentence = (v: string) => (v.trim() ? v.trim().replace(/([^.!?])$/, '$1.') : '')
 
 // The move-in window as people naturally type it, made to follow a verb:
@@ -27,7 +28,7 @@ function moveInWhen(text: string): string {
   return /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t
 }
 
-// The opening line of the first inquiry. Settings shows it as a live preview,
+// The opening line of the first message. Your criteria shows it as a live preview,
 // so people can see how their profile fields read in a sentence.
 export function introLine(p: Profile): string {
   const h = household(p)
@@ -65,11 +66,11 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     templates.push({
       id: 'inq-individual',
       kind: 'initial',
-      title: 'Initial inquiry: individual owner',
+      title: 'First message',
       body:
         `Hi${l.contact.trim() ? ' ' + l.contact.trim().split(/[\s,·]/)[0] : ''},\n\n` +
         `${introLine(p)} ${cap(h.we)} came across ${place} and would love to set up a time to see it.${hookLine}\n\n` +
-        // Claims about the household come only from what the user wrote in Settings.
+        // Claims about the household come only from what the user wrote in Your criteria.
         [aboutUs, quals].filter(Boolean).map(t => `${t} `).join('') +
         `${cap(h.we)} can provide credit reports and proof of income. Happy to send anything you need today.\n\n` +
         `Is the place still available, and is there a good time this week to take a look?` +
@@ -79,7 +80,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     templates.push({
       id: 'inq-mgmt',
       kind: 'initial',
-      title: 'Initial inquiry: property mgmt',
+      title: 'First message',
       body:
         `Hi,\n\n` +
         `${cap(h.weAre)} interested in ${unitLabel} at ${place}${l.address.trim() ? ` (${l.address.trim()})` : ''} and would like to book a tour this week. A few questions so ${h.we} can move quickly:\n\n` +
@@ -88,7 +89,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
         `3. What are the application fee and holding deposit, and are they refundable if the application isn't approved?\n` +
         `4. What's your typical turnaround from application to approval?\n\n` +
         `${cap(h.weAre)} targeting a move-in ${when}. ` +
-        // Claims about the household come only from what the user wrote in Settings.
+        // Claims about the household come only from what the user wrote in Your criteria.
         (quals ? `${quals} ` : '') +
         `Credit reports and income verification ready to submit same-day.` +
         phone,
@@ -99,7 +100,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     {
       id: 'nudge-24h',
       kind: 'followup',
-      title: 'Nudge: 24h silence',
+      title: 'Nudge after a day',
       body:
         `Hi, following up on my note yesterday about ${unitLabel} at ${place}. ` +
         `${cap(h.weAre)} touring places this week and it's near the top of ${h.our} list, so I wanted to check it's still available before ${h.we} finalize ${h.our} schedule. ` +
@@ -109,7 +110,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     {
       id: 'confirm-tour',
       kind: 'followup',
-      title: 'Confirm tour',
+      title: 'Confirm the tour',
       body:
         `Hi, confirming ${h.our} tour of ${unitLabel} at ${place}${l.tourAt ? ` on ${formatTourAt(l.tourAt)}` : ''}. ` +
         `${cap(h.we)}'ll be there. If anything changes on your end, you can reach me at ${fallback(p.phone, 'this address')}. See you then!` +
@@ -118,7 +119,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     {
       id: 'post-tour',
       kind: 'followup',
-      title: 'Post-tour: we want it',
+      title: 'Ask to apply',
       body:
         `Hi, thank you for showing ${h.us} ${unitLabel} today. ${cap(h.we)} loved it and ${h.we}'d like to move forward.${hook ? ` ${hook[0].toUpperCase() + hook.slice(1).replace(/\.?$/, '')} really sealed it for ${h.us}.` : ''}\n\n` +
         `Could you send over the application link and confirm what you need from ${h.us}? ${cap(h.we)} can complete it today. ` +
@@ -128,7 +129,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     {
       id: 'pin-all-in',
       kind: 'followup',
-      title: 'Pin down the all-in number',
+      title: 'Confirm the all-in cost',
       body:
         `Hi, before ${h.we} finalize, I want to make sure I have the complete monthly picture for ${unitLabel}. Could you confirm in writing:\n\n` +
         `1. Base rent (${rentStr}?)\n` +
@@ -141,7 +142,7 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
     {
       id: 'backup',
       kind: 'followup',
-      title: 'Backup: keep us in mind',
+      title: 'Ask to be first in line',
       body:
         `Hi, sorry to hear ${unitLabel} was leased, and thanks for letting me know. ` +
         `If it falls through, or a comparable unit opens up in the next month or so, ${h.we}'d love to be first in line. ${cap(h.weAre)} qualified, aiming to move ${when}, flexible on the exact date, and can apply same-day. ` +
@@ -156,5 +157,24 @@ export function buildTemplates(l: Listing, s: Settings): Template[] {
 function formatTourAt(tourAt: string): string {
   const d = new Date(tourAt)
   if (isNaN(d.getTime())) return tourAt
-  return d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+// The message a listing opens on: the one its status calls for. Statuses with
+// nothing new to say open on confirming the all-in cost, which is worth asking
+// at any point; a Lead or a Passed listing opens on the first message.
+const OPENING: Record<ListingStatus, TemplateId | 'initial'> = {
+  'Lead': 'initial',
+  'Inquired': 'nudge-24h',
+  'Replied': 'pin-all-in',
+  'Tour booked': 'confirm-tour',
+  'Toured': 'post-tour',
+  'Applied': 'pin-all-in',
+  'Approved': 'pin-all-in',
+  'Passed': 'initial',
+}
+
+export function openingTemplate(templates: Template[], status: ListingStatus): Template {
+  const want = OPENING[status]
+  return templates.find(t => (want === 'initial' ? t.kind === 'initial' : t.id === want)) ?? templates[0]
 }

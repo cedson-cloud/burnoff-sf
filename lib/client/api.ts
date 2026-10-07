@@ -43,6 +43,14 @@ export function storeBoard(boardId: string) {
   } catch {}
 }
 
+// Forget the remembered board, but only if it's this one: a mistyped link shouldn't
+// erase the board this device really uses.
+export function forgetBoard(boardId: string) {
+  try {
+    if (localStorage.getItem(BOARD_KEY) === boardId) localStorage.removeItem(BOARD_KEY)
+  } catch {}
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)

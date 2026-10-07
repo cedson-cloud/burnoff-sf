@@ -44,7 +44,7 @@ describe('demoSeed', () => {
     const totals = scores.map(s => s.total)
     assert.ok(Math.max(...totals) >= 75, `a strong option exists: ${totals}`)
     assert.ok(Math.max(...totals) - Math.min(...totals) >= 25, `scores are spread out: ${totals}`)
-    assert.ok(scores.filter(s => s.factors.some(f => f.unknown)).length >= 2, 'some listings show amber')
+    assert.ok(scores.filter(s => s.factors.some(f => f.unknown)).length >= 2, 'some listings show fog')
     assert.ok(scores.some(s => s.allIn === null), 'one listing has no rent')
     assert.ok(scores.filter(s => s.allIn !== null).every(s => s.allIn! < criteria.hardCeiling + 500))
   })
