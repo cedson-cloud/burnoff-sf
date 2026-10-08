@@ -20,9 +20,9 @@ How I built it with Claude Code during a one-week apartment search is in [the ca
 
 SF fog (locals call it Karl) burns off when it decides to. A listing has its own fog: the real monthly cost, whether parking exists, which fees are required. Burnoff lets you clear it yourself, early enough to tour and apply before someone else does. The playbook I wrote before the move said to tour within 24 hours of a listing going up and apply the same day.
 
-On August 30 I got to San Francisco with a week to find an apartment. I asked Claude for a simple app my partner and I could both use to track tours and outreach. It built a shared board as an artifact and told me I didn't need anything more. I pushed back, because the loop eating my day was finding a listing, retyping a message, sending it, and forgetting who I'd already chased.
+On August 30 I got to San Francisco with a week to find an apartment. I asked Claude for a simple app my girlfriend and I could both use to track tours and outreach. It built a shared board as an artifact and told me I didn't need anything more. I pushed back, because the loop eating my day was finding a listing, retyping a message, sending it, and forgetting who I'd already chased.
 
-The artifact went through about seven versions in two days. Each rebuild got fresh storage and a new link to re-send to my partner, who needed a Claude account just to open it. Zillow also rate-limited Claude in the middle of a task. So it became a real app on Vercel, built with Claude Code from a written spec. One rule came straight from the instructions in my first planning chat: "Unknown is an acceptable answer. Fabrication is not." It became the parse prompt and the fog on every unknown.
+The artifact went through about seven versions in two days. Each rebuild got fresh storage and a new link to re-send to my girlfriend, who needed a Claude account just to open it. Zillow also rate-limited Claude in the middle of a task. So it became a real app on Vercel, built with Claude Code from a written spec. One rule came straight from the instructions in my first planning chat: "Unknown is an acceptable answer. Fabrication is not." It became the parse prompt and the fog on every unknown.
 
 Our application was approved on September 2, and the lease was final on September 4.
 

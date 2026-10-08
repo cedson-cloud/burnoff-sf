@@ -40,7 +40,7 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    numbers and dates properly and validate at the API boundary with zod (which is already a
    dependency).
 
-9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 109
+9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 111
    unit tests (`node:test`, no framework) across 10 files: the write queue and poll merge against
    a fake server (edits made mid-flush survive, a poll never overwrites a pending edit, a 401
    locks while a 5xx shows "unreachable" and a 404 on first load shows "No board at this link"), the passcode and mode guards, the parse length caps, the demo's parse
