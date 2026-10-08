@@ -6,6 +6,8 @@ Burnoff is a phone-first board for apartment hunting in San Francisco, alone or 
 
 **Try the demo at [burnoff-sf.vercel.app](https://burnoff-sf.vercel.app).** It opens on a board of invented listings for two friends searching together. Anything you add stays in your browser, and paste-to-parse makes a live call to Claude.
 
+How I built it with Claude Code during a one-week apartment search is in [the case study](docs/burnoff-case-study.md).
+
 <!-- Screenshots: the live demo at a 390x844 phone viewport. Files are in docs/screenshots/. -->
 <p>
   <img src="docs/screenshots/rank.jpg" width="200" alt="Ranked tab: listings sorted by fit score out of 100, each with five factor bars; unknown factors are hatched fog marked with a question mark">
@@ -22,7 +24,7 @@ On August 30 I got to San Francisco with a week to find an apartment. I asked Cl
 
 The artifact went through about seven versions in two days. Each rebuild got fresh storage and a new link to re-send to my partner, who needed a Claude account just to open it. Zillow also rate-limited Claude in the middle of a task. So it became a real app on Vercel, built with Claude Code from a written spec. One rule came straight from the instructions in my first planning chat: "Unknown is an acceptable answer. Fabrication is not." It became the parse prompt and the fog on every unknown.
 
-Our application was approved on September 2, and I signed on September 3.
+Our application was approved on September 2, and the lease was final on September 4.
 
 In October I came back to make it public, and the board wouldn't load. Upstash had archived the free database after it sat idle, and the lock screen called that a wrong passcode. That's fixed, and it's why this README has a section on archiving. Making it public also meant taking us out of it. Some templates only made sense for our household, and the app assumed you had a "partner." Now it works solo or with anyone. You write how messages should describe the other person ("my sister", "my cofounder"), or leave it blank and every message says "I".
 
@@ -38,7 +40,7 @@ My earlier build is [Continental Divide](https://github.com/cedson-cloud/contine
 
 Good units often go in a couple of days. These are the jobs a hunter has in the first 24 hours after a listing appears, and the app is built around them in this order.
 
-1. **Capture the listing from anywhere.** Copy the page text, paste it in, and one Claude call fills in rent, fees, square footage, parking, each unit, move-in date and a "hook" (one detail worth mentioning in your first message). It works on Zillow, Craigslist, a building's own site, or anything else with text on it. Anything the page doesn't say stays blank.
+1. **Capture the listing from anywhere.** Copy the page text, paste it in, and one Claude call fills in rent, fees, square footage, parking, each unit, move-in date and a "hook" (one detail worth mentioning in your first message). It works on Zillow, Craigslist, a building's own site, or anything else with text on it. Anything the page doesn't say stays blank. On a phone, choose Only have the link instead. Claude looks for the listing on the building's own site and shows where each value came from. It takes a minute or two and costs about 40¢.
 2. **Know what it really costs.** Some buildings quote base rent, some include required fees, and almost none include parking. Burnoff adds rent, plus required fees when the price is base rent, plus parking if you count it, so every listing compares on the same number.
 3. **Score it before contacting anyone.** 100 points from your own criteria: cost 35, parking 20, commute 20, size 15, move-in 10, rescaled to 80 when you don't need parking. Unknowns get half credit and show as fog, so a listing with missing details stays in the running and shows you what to ask.
 4. **Send a first message that doesn't read like the other fifty.** Individual owners decide on people and speed, while property managers decide on paperwork and turnaround, so the first inquiry has a version for each. The listing's hook drops into it. There are also drafts for the 24-hour nudge, tour confirmation, "we want it", pinning down the all-in number, and the backup ask.
@@ -50,7 +52,7 @@ Edits show up right away and wait on your phone until the server confirms them, 
 
 ## Decisions and what I cut
 
-**Nothing is scraped.** Listing sites block cloud servers. Your browser already has the page open, so you copy the text and the model does the tedious part. It also covers listings the big sites miss. One building's one-bedroom never showed up on Zillow at all. I found it on the building's own site after Claude told me no such unit existed.
+**Paste first, look it up second.** Listing sites block cloud servers and their terms forbid automated reading, so the main way in is copying the page you already have open. On a phone, listing apps won't let you copy, so Find it with Claude takes the link and what you can see and looks for the building's own site, with the big listing sites blocked. Every value it finds shows its source, and nothing saves until you check it. It also covers listings the big sites miss. One building's one-bedroom never showed up on Zillow at all. I found it on the building's own site after Claude told me no such unit existed.
 
 **Unknowns stay unknown.** I tried having Claude look up missing rents with web search first. The search index hadn't crawled a listing posted the day before, and fresh listings are exactly the ones worth chasing. The parse prompt forbids guessing, and scoring treats a blank as half credit with a flag.
 
@@ -68,11 +70,12 @@ Cut along the way: URL scraping, embedded maps, user accounts, an ORM and a stat
 
 Claude Code's first report said the app was built, tested end to end, and passed every acceptance criterion. I treated that as a claim to check, starting with the message templates. One of them said something about us that wasn't true, and a message had already gone out with it. I had Claude Code print every template, before and after, and fact-checked each claim line by line. The audit found a second false claim, and the rule now is that templates only say what the profile says.
 
-For the public version, `npm test` runs 86 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the parse length caps, the demo's parse fallback, and the demo data. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
+For the public version, `npm test` runs 111 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the parse length caps, the demo's parse fallback, the demo data, and Find it with Claude's prompt, guard and sources. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
 
 ## What I learned building it with AI
 
-- **Don't make the model fetch what you're already looking at.** Pasting the page beats any scraper and works everywhere.
+- **Don't make the model fetch what you're already looking at.** Pasting the page is exact and free whenever you can copy it. On a phone you often can't, so the lookup shows a source for everything it finds.
+- **A cheaper run can be confidently wrong.** With a smaller search budget, Claude skipped a page and said a building's fees weren't itemized when they were.
 - **A search index lags the live web.** The newest listings are the ones the model can't see.
 - **"All tests pass" from a coding agent is where checking starts.** Ask what would be silently wrong, and test that.
 - **AI-written outreach can say false things about you.** Read every claim in a template before it goes to a landlord.
@@ -110,7 +113,8 @@ These are the settings the app reads. None of them ever reach the browser.
 
 | Variable | What it is | Where it comes from |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key, used only for parsing | Step 1 |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key, used for parsing, and for Find it with Claude unless the next key is set | Step 1 |
+| `FIND_ANTHROPIC_API_KEY` | Optional. A separate key for Find it with Claude, so lookups get their own spend cap | Leave unset, or create one in its own workspace |
 | `BOARD_ID` | Long random string that becomes your URL (`/b/<BOARD_ID>`) | Step 2 |
 | `BOARD_PASSCODE` | The shared passcode, at least 12 characters, entered once per device | Step 2 |
 | `KV_REST_API_URL` | Upstash database address | Set by Vercel in step 4 |
@@ -145,11 +149,11 @@ Stack: Next.js 15, React 19, TypeScript, Tailwind v4, Upstash Redis, and the Ant
 
 ## Honest limitations
 
-It was built for one search over a couple of weeks, by two people, and some choices stop working past that. The passcode is thin protection. If two people edit the same listing offline, the later save wins without a warning. Sync polls every 15 seconds instead of pushing. Scoring thresholds are in Your criteria, but the curve shapes are hardcoded. Real mode has no export button, and with no signal a cold open shows nothing. Each one, with the fix I'd make, is in [DECISIONS.md](DECISIONS.md).
+It was built for one search over a couple of weeks, by two people, and some choices stop working past that. The passcode is thin protection. If two people edit the same listing offline, the later save wins without a warning. Sync polls every 15 seconds instead of pushing. Scoring thresholds are in Your criteria, but the curve shapes are hardcoded. Real mode has no export button, and with no signal a cold open shows nothing. Find it with Claude costs about 40¢ a lookup, and reloading the page drops one that's still running. Each one, with the fix I'd make, is in [DECISIONS.md](DECISIONS.md).
 
 ## Privacy
 
-The repo has no real names, phone numbers or addresses. Your details live in your own database, entered through Your criteria. In the demo, your board never leaves your browser. Text you paste for parsing goes through the server to Anthropic, and the app doesn't store it. Application paperwork stays out of the app entirely.
+The repo has no real names, phone numbers or addresses. Your details live in your own database, entered through Your criteria. In the demo, your board never leaves your browser. Text you paste for parsing, and what you type for a lookup, goes through the server to Anthropic, and the app doesn't store it. Application paperwork stays out of the app entirely.
 
 ## License
 
