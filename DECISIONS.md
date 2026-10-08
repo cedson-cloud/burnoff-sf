@@ -40,12 +40,28 @@ Choices below were right for a two-person, two-week sprint. Each one has a cliff
    numbers and dates properly and validate at the API boundary with zod (which is already a
    dependency).
 
-9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 100
-   unit tests (`node:test`, no framework) across 9 files: the write queue and poll merge against
+9. **Tests cover the parts that can lose data or spend money, not the UI.** `npm test` runs 109
+   unit tests (`node:test`, no framework) across 10 files: the write queue and poll merge against
    a fake server (edits made mid-flush survive, a poll never overwrites a pending edit, a 401
    locks while a 5xx shows "unreachable" and a 404 on first load shows "No board at this link"), the passcode and mode guards, the parse length caps, the demo's parse
    fallback, the browser-only store's import/reset, the demo seed (no real-looking contact
-   data, unknowns flagged), To do's queues and the message each status opens on. `npm run smoke` covers the API contract and a real parse call end to
+   data, unknowns flagged), To do's queues, the message each status opens on, and Find it with Claude's prompt, guard and sources. `npm run smoke` covers the API contract and a real parse call end to
    end, and the live demo was checked with curl and on a phone before launch. The gaps: `lib/score.ts` has
    no tests of its own (only a sanity check through the demo seed), and there are no browser
    tests, so layout and the walkthrough are verified by hand.
+
+10. **Phones get "Find it with Claude", which is slow and costs money, on purpose.** Pasting the
+    page is exact and free, but on a phone the listing apps won't let you copy it. Tested on
+    2026-10-07: two iPhone Shortcuts (one copies a Safari page, one downloads the link an app
+    shares) work for Zillow, but Redfin sends a blank page to non-browsers and the setup was too
+    fiddly to ask of anyone. Screenshots meant too many of them per listing. A paid scraping API
+    would break the free-tier rule and move scraping onto the server. The lookup searches the open
+    web with the big listing sites blocked: the first run took 12½ minutes and $1.51 and found
+    everything; tuned budgets brought it to one or two minutes and about 40¢, and on one run it skipped the
+    floor-plans page and said fees weren't itemized when they were. So found values are shown with
+    their sources and checked before saving, never trusted silently. The cliffs: on the demo it shares
+    the paste key's monthly cap, so heavy lookup use can stop pasting too (a separate
+    `FIND_ANTHROPIC_API_KEY` in its own workspace fixes that); a lookup lives in the open tab and a reload drops it; small
+    landlords who only post on Zillow often can't be found; and the tool budgets in `lib/find.ts`
+    trade completeness for speed. The Shortcuts are documented in `docs/phone-capture.md` for anyone
+    who wants the exact text instead.

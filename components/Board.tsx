@@ -1,11 +1,13 @@
 'use client'
 
 import { ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Parser } from '@/lib/client/parser'
+import { FindOutcome, Parser } from '@/lib/client/parser'
+import { FoundSource } from '@/lib/find'
 import { BoardState, BoardStore } from '@/lib/client/store'
 import { todoCount } from '@/lib/tours'
 import { Listing } from '@/lib/types'
 import AddListingButton from './AddListingButton'
+import FindCards, { Find } from './FindCards'
 import { BoardNav, BoardNavContext, EditorSection, View } from './BoardNav'
 import { segment, segmentTrack } from './Field'
 import Icon from './Icon'
@@ -30,7 +32,7 @@ export type BoardSlots = {
 type OpenSheet =
   | { kind: 'paste' }
   | { kind: 'criteria' }
-  | { kind: 'listing'; listing: Listing; section?: EditorSection; key: number }
+  | { kind: 'listing'; listing: Listing; section?: EditorSection; key: number; sources?: FoundSource[] }
 
 const TABS: [View, string][] = [
   ['rank', 'Ranked'],
@@ -60,8 +62,34 @@ export default function Board({ store, parser, slots = {} }: { store: BoardStore
     opener.current = null
   }, [sheet])
 
-  const edit = (listing: Listing, section?: EditorSection) => show({ kind: 'listing', listing, section, key: Date.now() })
+  const edit = (listing: Listing, section?: EditorSection, sources?: FoundSource[]) =>
+    show({ kind: 'listing', listing, section, key: Date.now(), sources })
   const close = () => show(null)
+
+  // Lookups run in the background while the board stays usable; each shows as a
+  // card at the top until its listing is saved or the card is dismissed. They live
+  // in this tab only, so a reload drops one that's still running.
+  const [finds, setFinds] = useState<Find[]>([])
+  const updateFind = (id: string, patch: Partial<Find>) =>
+    setFinds(fs => fs.map(f => (f.id === id ? { ...f, ...patch } : f)))
+  const startFind = (url: string, details: string) => {
+    const id = crypto.randomUUID()
+    const label = details.split('\n')[0].slice(0, 60)
+    setFinds(fs => [{ id, label, status: 'running' }, ...fs])
+    show(null)
+    parser.find!(url, details).then(
+      (outcome: FindOutcome) => updateFind(id, { status: 'ready', outcome }),
+      (err: unknown) => updateFind(id, { status: 'failed', error: err instanceof Error ? err.message : String(err) }),
+    )
+  }
+  const savedIds = new Set(all.map(l => l.id))
+  const findCards = (
+    <FindCards
+      finds={finds.filter(f => !(f.outcome && savedIds.has(f.outcome.listing.id)))}
+      onOpen={f => f.outcome && edit(f.outcome.listing, undefined, f.outcome.sources)}
+      onDismiss={id => setFinds(fs => fs.filter(f => f.id !== id))}
+    />
+  )
 
   const nav = useMemo<BoardNav>(
     () => ({
@@ -145,6 +173,7 @@ export default function Board({ store, parser, slots = {} }: { store: BoardStore
                 <p className="py-16 text-center text-sm text-ink-2">Loading board…</p>
               ) : view === 'rank' ? (
                 <>
+                  {findCards}
                   {slots.intro}
                   <RankView
                     listings={all}
@@ -155,7 +184,10 @@ export default function Board({ store, parser, slots = {} }: { store: BoardStore
                   />
                 </>
               ) : (
-                <TodoView listings={all} settings={settings} onOpen={edit} />
+                <>
+                  {findCards}
+                  <TodoView listings={all} settings={settings} onOpen={(l, section) => edit(l, section)} />
+                </>
               )}
             </main>
           </div>
@@ -173,6 +205,7 @@ export default function Board({ store, parser, slots = {} }: { store: BoardStore
                   parser={parser}
                   onClose={close}
                   onParsed={l => edit(l)} // the prefilled editor; nothing is saved until Save
+                  onFind={startFind}
                 />
               )}
 
@@ -181,6 +214,7 @@ export default function Board({ store, parser, slots = {} }: { store: BoardStore
                   key={sheet.key}
                   listing={sheet.listing}
                   section={sheet.section}
+                  sources={sheet.sources}
                   settings={settings}
                   isNew={!all.some(l => l.id === sheet.listing.id)}
                   onClose={close}

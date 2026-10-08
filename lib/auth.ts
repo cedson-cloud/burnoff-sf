@@ -59,3 +59,14 @@ export function guardParse(req: Request): { denied: NextResponse } | { limits: P
   }
   return { limits: { maxChars: MAX_CHARS[m], model: process.env.PARSE_MODEL || PARSE_MODEL } }
 }
+
+// "Find it with Claude" (app/api/find): the same passcode rule as parsing, and the
+// same model. Its spend is capped by its own key (FIND_ANTHROPIC_API_KEY) where set,
+// so a busy demo can run out of lookups without breaking paste.
+export function guardFind(req: Request): { denied: NextResponse } | { model: string } {
+  if (mode() === 'real') {
+    const denied = checkPass(req)
+    if (denied) return { denied }
+  }
+  return { model: process.env.PARSE_MODEL || PARSE_MODEL }
+}

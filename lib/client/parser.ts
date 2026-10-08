@@ -1,6 +1,7 @@
+import { FoundListing, FoundSource, sourcesNote } from '../find'
 import { ParsedListing } from '../parse-schema'
 import { Listing, emptyListing } from '../types'
-import { parseListing } from './api'
+import { findListing, parseListing } from './api'
 
 // Turning pasted page text into a prefilled Listing. PasteParse only sees this
 // interface: the live parser is the same in both modes, and the demo wraps it
@@ -9,8 +10,13 @@ import { parseListing } from './api'
 
 export type ParseOutcome = { listing: Listing; origin: 'claude' | 'sample'; note?: string }
 
+// A listing Claude looked up on the web from its link and what the person could see.
+// `sources` says where each value came from, for the editor to show before saving.
+export type FindOutcome = { listing: Listing; sources: FoundSource[] }
+
 export interface Parser {
   parse(text: string, url: string): Promise<ParseOutcome>
+  find?(url: string, details: string): Promise<FindOutcome> // when set, PasteParse offers "Only have the link?"
   samplePaste?: { url: string; text: string } // when set, PasteParse offers "Try a sample listing"
 }
 
@@ -25,6 +31,10 @@ export function liveParser(pass: string | null): Parser {
       const { parsed } = await parseListing(pass, text, url)
       return { listing: toListing(parsed, url), origin: 'claude' }
     },
+    async find(url, details) {
+      const { found } = await findListing(pass, url, details)
+      return { listing: foundToListing(found, url), sources: found.sources }
+    },
   }
 }
 
@@ -35,6 +45,8 @@ export function withSampleFallback(parser: Parser, samples: Sample[]): Parser {
   const first = samples[0]
   return {
     samplePaste: { url: first.url, text: first.text },
+    // No fallback for find: a sample there would be a listing nobody looked up.
+    find: parser.find,
     async parse(text, url) {
       try {
         return await parser.parse(text, url)
@@ -56,6 +68,19 @@ export function withSampleFallback(parser: Parser, samples: Sample[]): Parser {
 // Textareas and copy-paste change line endings and stray whitespace.
 const sameText = (a: string, b: string) => squash(a) === squash(b)
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+// A found listing keeps its sources in the notes and its open questions in "Ask about",
+// and scores the unit the person was looking at when one matches.
+export function foundToListing(f: FoundListing, url: string): Listing {
+  const l = toListing(f, url)
+  const seen = f.units.findIndex(u => u.label === f.seenUnit)
+  return {
+    ...l,
+    notes: [l.notes, sourcesNote(f.sources)].filter(Boolean).join('\n\n'),
+    askAbout: f.askAbout,
+    units: seen < 0 ? l.units : l.units.map((u, i) => ({ ...u, target: i === seen })),
+  }
+}
 
 export function toListing(p: ParsedListing, url: string): Listing {
   const l = emptyListing()

@@ -1,6 +1,7 @@
 'use client'
 
 import { BoardData, Listing, Settings } from '../types'
+import { FoundListing } from '../find'
 import { ParsedListing } from '../parse-schema'
 import type { RemoteApi } from './store'
 
@@ -115,4 +116,10 @@ export const parseListing = (pass: string | null, pageText: string, url: string)
   call<{ parsed: ParsedListing }>(`/api/parse`, pass, {
     method: 'POST',
     body: JSON.stringify({ pageText, url }),
+  })
+
+export const findListing = (pass: string | null, url: string, details: string) =>
+  call<{ found: FoundListing }>(`/api/find`, pass, {
+    method: 'POST',
+    body: JSON.stringify({ url, details }),
   })

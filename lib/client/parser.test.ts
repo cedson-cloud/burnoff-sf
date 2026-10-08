@@ -5,7 +5,7 @@ import { ParsedListing } from '../parse-schema'
 import { SAMPLES } from '../parse-samples'
 import { DEFAULT_SETTINGS, emptyListing } from '../types'
 import { ApiError } from './api'
-import { ParseOutcome, Parser, liveParser, toListing, withSampleFallback } from './parser'
+import { ParseOutcome, Parser, foundToListing, liveParser, toListing, withSampleFallback } from './parser'
 
 const parsed = (units: ParsedListing['units']): ParsedListing => ({
   name: 'Test Bldg', address: '1 Test St', hood: 'Mission', source: 'direct',
@@ -142,5 +142,42 @@ describe('liveParser', () => {
     fakeFetch({ status: 422, body: { error: 'Could not extract listing data from that paste.' } })
     await assert.rejects(liveParser('secret').parse('page text', ''), (e: unknown) =>
       e instanceof ApiError && e.status === 422 && e.message === 'Could not extract listing data from that paste.')
+  })
+})
+
+describe('find', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => { globalThis.fetch = realFetch })
+  const found = { ...parsed([unit('204 · 1bd', '5895')]), notes: 'Pets OK', seenUnit: '',
+    sources: [{ what: 'Rent $5,895 for unit 204', url: 'https://rentbt.com/listing/204' }],
+    askAbout: 'Rent: $5,640 on Redfin vs $5,895 on the manager site. Monthly fees?' }
+
+  test('keeps the sources in the notes and the questions in "Ask about"', () => {
+    const l = foundToListing(found, 'https://redf.in/x')
+    assert.equal(l.notes, 'Pets OK\n\nFound on the web:\n- Rent $5,895 for unit 204 (https://rentbt.com/listing/204)')
+    assert.equal(l.askAbout, found.askAbout)
+    assert.equal(l.url, 'https://redf.in/x')
+  })
+
+  test('scores the unit the person was looking at', () => {
+    const two = { ...found, units: [unit('106 · Studio', '4440'), unit('204 · 1bd', '5640')], seenUnit: '204 · 1bd' }
+    assert.deepEqual(foundToListing(two, '').units.map(u => u.target), [false, true])
+    assert.deepEqual(foundToListing({ ...two, seenUnit: '' }, '').units.map(u => u.target), [false, false])
+  })
+
+  test('the live parser posts the link and details and returns the sources', async () => {
+    const calls: { url: string; body: unknown }[] = []
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(String(init?.body)) })
+      return new Response(JSON.stringify({ found }), { status: 200 })
+    }) as typeof fetch
+    const got = await liveParser('secret').find!('https://redf.in/x', '100 Example St')
+    assert.deepEqual(calls[0], { url: '/api/find', body: { url: 'https://redf.in/x', details: '100 Example St' } })
+    assert.deepEqual(got.sources, found.sources)
+  })
+
+  test('the demo fallback never swaps in a sample for a failed lookup', async () => {
+    const inner: Parser = { parse: async () => { throw new Error('x') }, find: async () => { throw new ApiError(502, 'down') } }
+    await assert.rejects(withSampleFallback(inner, SAMPLES).find!('u', 'details'), (e: unknown) => e instanceof ApiError)
   })
 })

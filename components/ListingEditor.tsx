@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { cap } from '@/lib/format'
 import { household } from '@/lib/household'
+import { FoundSource } from '@/lib/find'
 import { buildTemplates, openingTemplate } from '@/lib/messages'
 import { allIn, scoreListing } from '@/lib/score'
 import { Listing, ListingStatus, STATUSES, Settings, Unit, emptyUnit } from '@/lib/types'
@@ -20,10 +21,11 @@ import Sheet from './Sheet'
 const STEPS: ListingStatus[] = STATUSES.filter(s => s !== 'Passed')
 
 export default function ListingEditor({
-  listing, section, settings, isNew, onClose, onSave, onDelete,
+  listing, section, sources, settings, isNew, onClose, onSave, onDelete,
 }: {
   listing: Listing
   section?: EditorSection // scroll here on open
+  sources?: FoundSource[] // a listing Claude found on the web: where each value came from
   settings: Settings
   isNew: boolean
   onClose: () => void
@@ -173,6 +175,7 @@ export default function ListingEditor({
             </span>
           </p>
         )}
+        {sources && <FoundOnTheWeb sources={sources} />}
       </section>
 
       {/* 2. What to do next */}
@@ -511,6 +514,43 @@ export default function ListingEditor({
       </section>
     </Sheet>
   )
+}
+
+// Shown on a listing Claude looked up, until it's saved. The sources also go into
+// Notes, so they're still there afterwards.
+function FoundOnTheWeb({ sources }: { sources: FoundSource[] }) {
+  return (
+    <div className="mt-4 rounded-inset bg-well p-4">
+      <h4 className="text-[15px] font-semibold">Found on the web</h4>
+      <p className="mt-0.5 text-sm text-ink-2">
+        Claude found these on other sites. Check them against the listing before you save.
+      </p>
+      {sources.length > 0 && (
+        <ul className="mt-3 space-y-2 text-[14.5px]">
+          {sources.map((s, i) => (
+            <li key={i} className="min-w-0">
+              <span>{s.what}</span>{' '}
+              <a href={s.url} target="_blank" rel="noreferrer" className="whitespace-nowrap text-ink-2 underline underline-offset-2">
+                {hostOf(s.url)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-sm text-ink-2">
+        Some details, like fees and parking prices, often aren’t published anywhere. Add them when you learn them.
+        What’s worth asking is in Ask about on the tour.
+      </p>
+    </div>
+  )
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 // Stars from 1 to 5; tapping the chosen star clears it. The label sits outside

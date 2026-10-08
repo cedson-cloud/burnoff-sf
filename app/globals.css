@@ -114,6 +114,20 @@ input, select, textarea {
   }
 }
 
+/* iOS Safari gives date and time inputs a minimum width wider than a phone's
+   grid column, so they stick out of the form. Only iOS matches this query. */
+@supports (-webkit-touch-callout: none) {
+  input[type="date"], input[type="datetime-local"] {
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;

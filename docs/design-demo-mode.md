@@ -113,7 +113,7 @@ interface Parser {
 | | `RealApp` | `DemoApp` |
 |---|---|---|
 | store | `remoteStore`, recreated on unlock | `localStore({ seed: demoSeed(new Date()) })` |
-| parser | `liveParser(pass)` | `withSampleFallback(liveParser(null), SAMPLES)` |
+| parser | `liveParser(pass)` | `withSampleFallback(liveParser(null), SAMPLES)`. Find it with Claude passes through with no sample fallback, on the same capped key unless `FIND_ANTHROPIC_API_KEY` is set |
 | lock state | `PasscodeGate` when `access` is `locked`; "No board at this link" when `missing` (and it forgets the stored `board-id` if it names this board); an "unreachable" screen otherwise | never locks |
 | `slots.top` | nothing | `DemoBanner`: "Sample board. Your changes stay in this browser.", Deploy your own, and a ? that reopens the tour |
 | `slots.intro` | nothing | `Welcome`: what Burnoff is, with Add listing and Take the tour; dismissed per browser |

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { MIN_PASSCODE_LENGTH, guardBoard, guardParse } from './auth'
+import { MIN_PASSCODE_LENGTH, guardBoard, guardFind, guardParse } from './auth'
 import { PARSE_MODEL } from './parse-schema'
 
 const KEYS = ['BURNOFF_MODE', 'BOARD_ID', 'BOARD_PASSCODE', 'PARSE_MODEL'] as const
@@ -101,4 +101,16 @@ describe('guardParse', () => {
       await withEnv({ ...DEMO, PARSE_MODEL: 'claude-test-model' }, () =>
         assert.deepEqual(guardParse(req()), { limits: { maxChars: 15_000, model: 'claude-test-model' } }))
     }))
+})
+
+describe('guardFind', () => {
+  test('real mode: 401 without a pass, the parse model with one', () =>
+    withEnv(REAL, () => {
+      const g = guardFind(req())
+      assert.ok('denied' in g)
+      assert.equal(g.denied.status, 401)
+      assert.deepEqual(guardFind(req(PASS)), { model: PARSE_MODEL })
+    }))
+
+  test('demo mode: no pass needed', () => withEnv(DEMO, () => assert.deepEqual(guardFind(req()), { model: PARSE_MODEL })))
 })
