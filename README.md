@@ -4,7 +4,7 @@
 
 Burnoff is a phone-first board for apartment hunting in San Francisco, alone or with whoever you're moving with. Paste in a listing and Claude pulls out the numbers. Every place gets a score based on what it will actually cost you each month, and the app tells you who to message next. We were approved for our apartment three days after I got to SF.
 
-**Try the demo at [burnoff-sf.vercel.app](https://burnoff-sf.vercel.app).** It opens on a board of invented listings for two friends searching together. Anything you add stays in your browser, and paste-to-parse makes a live call to Claude.
+**Try the demo at [burnoff-sf.vercel.app](https://burnoff-sf.vercel.app).** It opens on a board of invented listings for two friends searching together. If you're searching yourself, tap Start your own board and use it for real. Your board stays in your browser, and paste-to-parse makes a live call to Claude.
 
 How I built it with Claude Code during a one-week apartment search is in [the case study](docs/burnoff-case-study.md).
 
@@ -70,7 +70,7 @@ Cut along the way: URL scraping, embedded maps, user accounts, an ORM and a stat
 
 Claude Code's first report said the app was built, tested end to end, and passed every acceptance criterion. I treated that as a claim to check, starting with the message templates. One of them said something about us that wasn't true, and a message had already gone out with it. I had Claude Code print every template, before and after, and fact-checked each claim line by line. The audit found a second false claim, and the rule now is that templates only say what the profile says.
 
-For the public version, `npm test` runs 111 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the parse length caps, the demo's parse fallback, the demo data, and Find it with Claude's prompt, guard and sources. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
+For the public version, `npm test` runs 112 unit tests on the parts that can lose your edits or spend money: the offline write queue, the merge that keeps a sync from overwriting an unsent edit, the passcode and mode guards, the parse length caps, the demo's parse fallback, the demo data, and Find it with Claude's prompt, guard and sources. `npm run smoke` checks the API and a real parse end to end. Before launch, the production build was searched for the API key and every other secret value, and none of them reach the browser. The demo was checked with curl and on my phone. The gaps are listed in [DECISIONS.md #9](DECISIONS.md).
 
 ## What I learned building it with AI
 
@@ -89,11 +89,13 @@ Same code, switched by one environment variable (`BURNOFF_MODE`).
 | | Demo (burnoff-sf.vercel.app) | Real (your own copy) |
 |---|---|---|
 | Where the board lives | Your browser only | Your Upstash database, shared |
-| Who sees it | Just you, on that device | Anyone with the URL and passcode |
+| Who sees it | Just you, on that device. Export a file to move it. | Anyone with the URL and passcode |
 | Paste-to-parse | Live, with a shorter input limit | Live |
-| Good for | Looking around | An actual search |
+| Good for | Trying it, or searching alone | Searching with someone |
 
 ## Use it for your own search
+
+If you're searching alone, the demo's Start your own board is enough. This setup is for a board you share, so two people see the same listings on their own phones.
 
 You don't need to know how to code. You need about 20 minutes and free accounts with GitHub, Vercel and Anthropic. Hosting and the database cost nothing. Parsing runs on your Anthropic account, so you'll add a few dollars of credit.
 
