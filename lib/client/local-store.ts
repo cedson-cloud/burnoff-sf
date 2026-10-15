@@ -4,7 +4,7 @@
 // See docs/design-demo-mode.md.
 
 import { normalizeBoardData } from '../board-data'
-import { BoardData, Listing, Settings } from '../types'
+import { BoardData, DEFAULT_SETTINGS, Listing, Settings } from '../types'
 import { KeyValueStorage } from './queue'
 import { BoardState, BoardStore } from './store'
 
@@ -14,6 +14,7 @@ export const LOCAL_BOARD_KEY = 'burnoff:local-board'
 // Extras for the owning composition root only; Board sees just BoardStore.
 export type LocalStore = BoardStore & {
   reset(): void
+  startBlank(): void
   exportJSON(): string
   importJSON(text: string): { ok: true } | { ok: false; error: string }
 }
@@ -114,6 +115,12 @@ export function localStore({
     reset() {
       setListings(seed.listings)
       settings = seed.settings
+      commit()
+    },
+    // Stamped so an open Your criteria form drops the sample's settings for these.
+    startBlank() {
+      setListings([])
+      settings = { ...DEFAULT_SETTINGS, updatedAt: now() }
       commit()
     },
     exportJSON: () => serialize(2),

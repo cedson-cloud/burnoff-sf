@@ -1,6 +1,7 @@
 'use client'
 
 import AddListingButton from './AddListingButton'
+import { useBoardNav } from './BoardNav'
 import Icon from './Icon'
 
 // The demo's first-visit welcome: what Burnoff is and where to start. It sits at
@@ -8,7 +9,7 @@ import Icon from './Icon'
 
 const DISMISSED_KEY = 'burnoff:welcome-dismissed'
 
-// Dismissed per browser. Reset demo clears it along with the sample board.
+// Dismissed per browser. Going back to the sample board clears it.
 export const welcomeDismissed = {
   get(): boolean {
     try {
@@ -25,7 +26,14 @@ export const welcomeDismissed = {
   },
 }
 
-export default function Welcome({ onTour, onDismiss }: { onTour: () => void; onDismiss: () => void }) {
+export default function Welcome({
+  onTour, onDismiss, onStartOwn,
+}: {
+  onTour: () => void
+  onDismiss: () => void
+  onStartOwn: () => void
+}) {
+  const nav = useBoardNav()
   return (
     <section aria-label="Welcome" className="relative mb-5 mt-1 rounded-card bg-paper p-5 lg:px-7 lg:py-6">
       <button
@@ -49,6 +57,19 @@ export default function Welcome({ onTour, onDismiss }: { onTour: () => void; onD
           Take the tour
         </button>
       </div>
+      {/* Only shown on the sample board, so there's nothing of the visitor's to confirm losing. */}
+      <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[15px] text-ink-2">
+        Searching for real?
+        <button
+          onClick={() => {
+            onStartOwn()
+            nav.openCriteria()
+          }}
+          className="min-h-11 font-semibold text-ink underline underline-offset-[3px]"
+        >
+          Start your own board
+        </button>
+      </p>
     </section>
   )
 }

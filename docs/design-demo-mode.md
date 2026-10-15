@@ -115,9 +115,9 @@ interface Parser {
 | store | `remoteStore`, recreated on unlock | `localStore({ seed: demoSeed(new Date()) })` |
 | parser | `liveParser(pass)` | `withSampleFallback(liveParser(null), SAMPLES)`. Find it with Claude passes through with no sample fallback, on the same capped key unless `FIND_ANTHROPIC_API_KEY` is set |
 | lock state | `PasscodeGate` when `access` is `locked`; "No board at this link" when `missing` (and it forgets the stored `board-id` if it names this board); an "unreachable" screen otherwise | never locks |
-| `slots.top` | nothing | `DemoBanner`: "Sample board. Your changes stay in this browser.", Deploy your own, and a ? that reopens the tour |
-| `slots.intro` | nothing | `Welcome`: what Burnoff is, with Add listing and Take the tour; dismissed per browser |
-| `slots.settings` | nothing | `DemoDataControls`: Reset, Export, Import |
+| `slots.top` | nothing | `DemoBanner`: "Sample board. Your changes stay in this browser." (or "Your board, saved in this browser only." once it's the visitor's own), Deploy your own (to the README's guide), and a ? that reopens the tour |
+| `slots.intro` | nothing | `Welcome`: what Burnoff is, with Add listing, Take the tour and Start your own board; dismissed per browser, hidden on the visitor's own board |
+| `slots.settings` | nothing | `DemoDataControls`: Export, Import, Start empty, Reset sample |
 | `slots.overlay` | nothing | `Walkthrough` |
 
 Both roots render the same `<Board store parser slots />`.
@@ -125,8 +125,10 @@ Both roots render the same `<Board store parser slots />`.
 **Rule: `BoardStore` contains only what Board needs.** Extras that belong to one mode are
 called on the concrete adapter, which only its own root holds:
 
-- `local.reset()`, `local.exportJSON()` and `local.importJSON()` are used by
-  `DemoDataControls`.
+- `local.reset()`, `local.startBlank()`, `local.exportJSON()` and `local.importJSON()` are used by
+  `DemoDataControls` and `DemoApp`. Whether the board is the sample or the visitor's own (started
+  blank or imported) is a separate `burnoff:own-board` flag in `DemoApp`, so the stored board
+  keeps the same shape as an export.
 - Unlocking with a passcode is handled by `RealApp`.
 
 This keeps the shared interface small.
